@@ -60,6 +60,22 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "dukan_backend.urls"
 
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
 WSGI_APPLICATION = "dukan_backend.wsgi.application"
 
 # ========================
@@ -106,6 +122,9 @@ SIMPLE_JWT = {
 
 STATIC_URL = "static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+
+STATICFILES_DIRS = []
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
