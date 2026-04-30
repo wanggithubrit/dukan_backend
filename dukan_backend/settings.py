@@ -3,19 +3,29 @@ from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
 
+# Base directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load environment variables
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
+# ========================
+# SECURITY SETTINGS
+# ========================
 
-DEBUG = True  # keep True until fully working
+SECRET_KEY = os.getenv("SECRET_KEY")
 
-ALLOWED_HOSTS = ["*"]
+DEBUG = os.getenv("DEBUG", "False") == "True"
+
+ALLOWED_HOSTS = ['*']  # change later to your domain
 
 CSRF_TRUSTED_ORIGINS = [
     "https://*.onrender.com",
 ]
+
+# ========================
+# APPLICATIONS
+# ========================
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -28,8 +38,13 @@ INSTALLED_APPS = [
     "core",
 ]
 
+# ========================
+# MIDDLEWARE
+# ========================
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # for static files
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -39,9 +54,17 @@ MIDDLEWARE = [
     "core.middleware.PlanExpiryMiddleware",
 ]
 
+# ========================
+# URLS & WSGI
+# ========================
+
 ROOT_URLCONF = "dukan_backend.urls"
 
 WSGI_APPLICATION = "dukan_backend.wsgi.application"
+
+# ========================
+# DATABASE
+# ========================
 
 DATABASES = {
     "default": {
@@ -50,11 +73,22 @@ DATABASES = {
     }
 }
 
-STATIC_URL = "/static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+# ⚠️ Later switch to PostgreSQL (recommended)
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+# ========================
+# PASSWORD VALIDATION
+# ========================
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+# ========================
+# DJANGO REST FRAMEWORK
+# ========================
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -66,7 +100,32 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=7),
 }
 
-# EMAIL
+# ========================
+# STATIC & MEDIA
+# ========================
+
+STATIC_URL = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+
+# ========================
+# INTERNATIONALIZATION
+# ========================
+
+LANGUAGE_CODE = "en-us"
+TIME_ZONE = "UTC"
+
+USE_I18N = True
+USE_TZ = True
+
+# ========================
+# EMAIL SETTINGS
+# ========================
+
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
@@ -75,6 +134,23 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
+# ========================
 # RAZORPAY
+# ========================
+
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
+
+# ========================
+# CUSTOM SETTINGS
+# ========================
+
+REFERRAL_ENABLED = True
+REFERRAL_REQUIRED = 3
+REFERRAL_REWARD_DAYS = 30
+
+# ========================
+# DEFAULT AUTO FIELD
+# ========================
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
