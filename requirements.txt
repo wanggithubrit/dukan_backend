@@ -13,5 +13,5 @@ Pillow==10.4.0
 psycopg2-binary==2.9.11
 razorpay==1.4.2
 firebase_admin==7.4.0
-
+razorpay==1.4.2
 setuptools
