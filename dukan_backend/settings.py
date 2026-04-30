@@ -2,55 +2,31 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
-import os
-from django.contrib.auth import get_user_model
-
-
-# Base directory
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Load environment variables
-load_dotenv()
-
-
-
-#supersuer
-
-def create_superuser():
-    User = get_user_model()
-    username = os.getenv("ADMIN_USERNAME")
-    email = os.getenv("ADMIN_EMAIL")
-    password = os.getenv("ADMIN_PASSWORD")
-
-    if username and password:
-        if not User.objects.filter(username=username).exists():
-            User.objects.create_superuser(
-                username=username,
-                email=email,
-                password=password
-            )
-
-try:
-    create_superuser()
-except Exception:
-    pass
 
 # ========================
-# SECURITY SETTINGS
+# BASE
+# ========================
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load env variables
+load_dotenv()
+
+# ========================
+# SECURITY
 # ========================
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY is missing ❌")
+
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = ['*']  # change later to your domain
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://*.onrender.com",
-]
+ALLOWED_HOSTS = ["*"]
 
 # ========================
-# APPLICATIONS
+# APPS
 # ========================
 
 INSTALLED_APPS = [
@@ -70,7 +46,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",  # for static files
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -81,11 +57,14 @@ MIDDLEWARE = [
 ]
 
 # ========================
-# URLS & WSGI
+# URLS
 # ========================
 
 ROOT_URLCONF = "dukan_backend.urls"
 
+# ========================
+# TEMPLATES
+# ========================
 
 TEMPLATES = [
     {
@@ -115,10 +94,8 @@ DATABASES = {
     }
 }
 
-# ⚠️ Later switch to PostgreSQL (recommended)
-
 # ========================
-# PASSWORD VALIDATION
+# PASSWORDS
 # ========================
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -129,7 +106,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # ========================
-# DJANGO REST FRAMEWORK
+# REST FRAMEWORK
 # ========================
 
 REST_FRAMEWORK = {
@@ -149,16 +126,13 @@ SIMPLE_JWT = {
 STATIC_URL = "static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
-
-STATICFILES_DIRS = []
-
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 # ========================
-# INTERNATIONALIZATION
+# INTERNATIONAL
 # ========================
 
 LANGUAGE_CODE = "en-us"
@@ -168,7 +142,7 @@ USE_I18N = True
 USE_TZ = True
 
 # ========================
-# EMAIL SETTINGS
+# EMAIL
 # ========================
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -187,7 +161,7 @@ RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 
 # ========================
-# CUSTOM SETTINGS
+# CUSTOM
 # ========================
 
 REFERRAL_ENABLED = True
@@ -195,7 +169,7 @@ REFERRAL_REQUIRED = 3
 REFERRAL_REWARD_DAYS = 30
 
 # ========================
-# DEFAULT AUTO FIELD
+# DEFAULT FIELD
 # ========================
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
