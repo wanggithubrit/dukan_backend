@@ -20,19 +20,19 @@ from django.core.mail import send_mail
 from .models import OTP
 from .models import Profile, Shop, AppSettings
 
-import razorpay
+
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from .serializers import NotificationSerializer
 
-import razorpay
+
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-import razorpay
+
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -1124,13 +1124,14 @@ def merchant_banners(request):
 
 
 
-
+import razorpay
 client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_order(request):
+   
     amount = 9900  # ₹99 (in paise)
 
     order = client.order.create({
@@ -1147,7 +1148,7 @@ def create_order(request):
 
 
 
-
+import razorpay
 client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
 
 
