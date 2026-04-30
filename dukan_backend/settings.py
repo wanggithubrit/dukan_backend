@@ -24,15 +24,12 @@ if not SECRET_KEY:
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = [
-    "dukanbackend-production-abc6.up.railway.app",
-    "localhost",
-    "127.0.0.1"
+    "dukanbackend-production-66eb.up.railway.app",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://dukanbackend-production-abc6.up.railway.app"
+    "https://dukanbackend-production-66eb.up.railway.app",
 ]
-
 # ========================
 # APPS
 # ========================
