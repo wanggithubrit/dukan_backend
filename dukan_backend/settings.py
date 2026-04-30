@@ -176,3 +176,25 @@ REFERRAL_REWARD_DAYS = 30
 # ========================
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+from django.contrib.auth import get_user_model
+
+def create_superuser():
+    User = get_user_model()
+    username = os.getenv("ADMIN_USERNAME")
+    email = os.getenv("ADMIN_EMAIL")
+    password = os.getenv("ADMIN_PASSWORD")
+
+    if username and password:
+        if not User.objects.filter(username=username).exists():
+            User.objects.create_superuser(
+                username=username,
+                email=email,
+                password=password
+            )
+
+try:
+    create_superuser()
+except Exception:
+    pass
