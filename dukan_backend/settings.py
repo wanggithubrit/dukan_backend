@@ -2,12 +2,38 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
+import os
+from django.contrib.auth import get_user_model
+
 
 # Base directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load environment variables
 load_dotenv()
+
+
+
+#supersuer
+
+def create_superuser():
+    User = get_user_model()
+    username = os.getenv("ADMIN_USERNAME")
+    email = os.getenv("ADMIN_EMAIL")
+    password = os.getenv("ADMIN_PASSWORD")
+
+    if username and password:
+        if not User.objects.filter(username=username).exists():
+            User.objects.create_superuser(
+                username=username,
+                email=email,
+                password=password
+            )
+
+try:
+    create_superuser()
+except Exception:
+    pass
 
 # ========================
 # SECURITY SETTINGS
