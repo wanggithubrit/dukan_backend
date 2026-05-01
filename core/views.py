@@ -1125,14 +1125,16 @@ def merchant_banners(request):
 
 
 import razorpay
-client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_order(request):
-   
-    amount = 9900  # ₹99 (in paise)
+
+    client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+    amount = 3900  # ₹39
 
     order = client.order.create({
         "amount": amount,
@@ -1146,15 +1148,12 @@ def create_order(request):
         "key": settings.RAZORPAY_KEY_ID
     })
 
-
-
-import razorpay
-client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
-
-
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def verify_payment(request):
+
+    client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
     data = request.data
 
     params_dict = {
@@ -1171,5 +1170,6 @@ def verify_payment(request):
 
         return Response({"status": "success"})
 
-    except:
+    except Exception as e:
+        print(e)
         return Response({"status": "failed"}, status=400)
