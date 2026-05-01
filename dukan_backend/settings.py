@@ -4,14 +4,12 @@ from dotenv import load_dotenv
 from datetime import timedelta
 import dj_database_url
 
-
 # ========================
 # BASE
 # ========================
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load env variables
 load_dotenv()
 
 # ========================
@@ -19,7 +17,6 @@ load_dotenv()
 # ========================
 
 SECRET_KEY = os.getenv("SECRET_KEY")
-
 if not SECRET_KEY:
     raise ValueError("SECRET_KEY is missing ❌")
 
@@ -31,9 +28,9 @@ CSRF_TRUSTED_ORIGINS = [
     "https://api.mydukan.online",
     "https://*.railway.app",
 ]
-CORS_ALLOWED_ORIGINS = [
-    "https://api.mydukan.online",
-]
+
+CORS_ALLOW_ALL_ORIGINS = True  # easier for mobile apps
+
 # ========================
 # APPS
 # ========================
@@ -46,8 +43,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    "core",
     "corsheaders",
+    "core",
 ]
 
 # ========================
@@ -55,7 +52,7 @@ INSTALLED_APPS = [
 # ========================
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware", 
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -95,17 +92,17 @@ TEMPLATES = [
 WSGI_APPLICATION = "dukan_backend.wsgi.application"
 
 # ========================
-# DATABASE
+# DATABASE (POSTGRES)
 # ========================
-
-
 
 DATABASES = {
     "default": dj_database_url.config(
         default=os.getenv("DATABASE_URL"),
         conn_max_age=600,
+        ssl_require=True  # IMPORTANT for Railway
     )
 }
+
 # ========================
 # PASSWORDS
 # ========================
@@ -180,12 +177,11 @@ REFERRAL_ENABLED = True
 REFERRAL_REQUIRED = 3
 REFERRAL_REWARD_DAYS = 30
 
-# ========================
-# DEFAULT FIELD
-# ========================
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# ========================
+# AUTO SUPERUSER (SAFE)
+# ========================
 
 from django.contrib.auth import get_user_model
 
@@ -207,6 +203,3 @@ try:
     create_superuser()
 except Exception:
     pass
-
-
-CORS_ALLOW_ALL_ORIGINS = True
