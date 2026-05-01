@@ -3,6 +3,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
 import dj_database_url
+
+
 # ========================
 # BASE
 # ========================
@@ -99,8 +101,8 @@ WSGI_APPLICATION = "dukan_backend.wsgi.application"
 
 
 DATABASES = {
-    "default": dj_database_url.parse(
-        os.getenv("postgresql://postgres:hUlDTZraSKcXFIkXtjKeKgUuDpnvnTuF@postgres.railway.internal:5432/railway"),
+    "default": dj_database_url.config(
+        default=os.getenv("DATABASE_URL"),
         conn_max_age=600,
     )
 }
