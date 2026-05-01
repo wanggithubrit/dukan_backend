@@ -16,4 +16,8 @@ dj-database-url==2.1.0
 razorpay==1.4.2
 firebase_admin==7.4.0
 
+
+cloudinary
+django-cloudinary-storage
+
 setuptools
