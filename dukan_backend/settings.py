@@ -26,7 +26,7 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 ALLOWED_HOSTS = ["*"]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://*.railway.app",
+    "https://dukanbackend-production-66eb.up.railway.app",
 ]
 # ========================
 # APPS
@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "core",
+    "corsheaders",
 ]
 
 # ========================
@@ -48,6 +49,7 @@ INSTALLED_APPS = [
 # ========================
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware", 
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -198,3 +200,6 @@ try:
     create_superuser()
 except Exception:
     pass
+
+
+CORS_ALLOW_ALL_ORIGINS = True
