@@ -11,9 +11,9 @@ python-dotenv==1.0.1
 Pillow==10.4.0
 
 psycopg2-binary==2.9.11
+dj-database-url==2.1.0
+
 razorpay==1.4.2
 firebase_admin==7.4.0
-razorpay==1.4.2
+
 setuptools
-dj-database-url
-psycopg2-binary
