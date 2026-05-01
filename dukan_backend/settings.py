@@ -26,7 +26,8 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 ALLOWED_HOSTS = ["*"]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://dukanbackend-production-66eb.up.railway.app",
+    "https://api.mydukan.online",
+    "https://*.railway.app",
 ]
 # ========================
 # APPS
