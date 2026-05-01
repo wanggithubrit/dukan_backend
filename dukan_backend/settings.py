@@ -29,6 +29,9 @@ CSRF_TRUSTED_ORIGINS = [
     "https://api.mydukan.online",
     "https://*.railway.app",
 ]
+CORS_ALLOWED_ORIGINS = [
+    "https://api.mydukan.online",
+]
 # ========================
 # APPS
 # ========================
