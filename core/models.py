@@ -1,20 +1,17 @@
 from django.db import models
 from django.contrib.auth.models import User
-import random
 from django.utils import timezone
 from datetime import timedelta
 import random
 import string
-import uuid
+
+# ✅ Cloudinary
+from cloudinary.models import CloudinaryField
+
+
 # ==============================
 # 🏪 SHOP
 # ==============================
-
-from django.db import models
-from django.contrib.auth.models import User
-from django.utils import timezone
-from datetime import timedelta
-
 
 class Shop(models.Model):
     CATEGORY_CHOICES = [
@@ -40,7 +37,8 @@ class Shop(models.Model):
     whatsapp_number = models.CharField(max_length=15, blank=True, null=True)
     address = models.TextField(blank=True)
 
-    image = models.ImageField(upload_to='shops/', null=True, blank=True)
+    # ✅ Cloudinary
+    image = CloudinaryField("image", null=True, blank=True)
 
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
@@ -52,69 +50,51 @@ class Shop(models.Model):
 
     auto_notify = models.BooleanField(default=True)
 
-    # ───────── PLAN SYSTEM ─────────
     plan = models.CharField(
         max_length=10,
-        choices=[
-            ('free', 'Free'),
-            ('pro', 'Pro')
-        ],
+        choices=[('free', 'Free'), ('pro', 'Pro')],
         default='free'
     )
 
     plan_expiry = models.DateTimeField(null=True, blank=True)
 
-    # ───────── ACTIVATE / EXTEND PRO ─────────
     def activate_pro(self):
         now = timezone.now()
-
         if self.plan == 'pro' and self.plan_expiry and self.plan_expiry > now:
-            # extend existing plan
             self.plan_expiry += timedelta(days=30)
         else:
-            # new activation
             self.plan = 'pro'
             self.plan_expiry = now + timedelta(days=30)
-
         self.save(update_fields=['plan', 'plan_expiry'])
 
-    # ───────── CHECK PRO ACTIVE ─────────
     def is_pro_active(self):
-        return (
-            self.plan == 'pro' and
-            self.plan_expiry and
-            self.plan_expiry > timezone.now()
-        )
+        return self.plan == 'pro' and self.plan_expiry and self.plan_expiry > timezone.now()
 
-    # ───────── AUTO DOWNGRADE ─────────
     def check_and_update_plan(self):
-        if self.plan == 'pro' and self.plan_expiry:
-            if self.plan_expiry <= timezone.now():
-                self.plan = 'free'
-                self.plan_expiry = None
-                self.save(update_fields=['plan', 'plan_expiry'])
+        if self.plan == 'pro' and self.plan_expiry and self.plan_expiry <= timezone.now():
+            self.plan = 'free'
+            self.plan_expiry = None
+            self.save(update_fields=['plan', 'plan_expiry'])
 
-    # ───────── DAYS LEFT ─────────
     def days_left(self):
         if not self.is_pro_active():
             return 0
+        return max((self.plan_expiry - timezone.now()).days, 0)
 
-        diff = self.plan_expiry - timezone.now()
-        return max(diff.days, 0)
-
-    # ───────── SAVE OVERRIDE (AUTO CHECK) ─────────
     def save(self, *args, **kwargs):
-        # auto downgrade if expired before saving
-        if self.plan == 'pro' and self.plan_expiry:
-            if self.plan_expiry <= timezone.now():
-                self.plan = 'free'
-                self.plan_expiry = None
-
+        if self.plan == 'pro' and self.plan_expiry and self.plan_expiry <= timezone.now():
+            self.plan = 'free'
+            self.plan_expiry = None
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
-#  SHOP BANNER (Dashboard Offers)
+
+
+# ==============================
+# 🖼️ SHOP BANNER
+# ==============================
+
 class ShopBanner(models.Model):
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
 
@@ -124,24 +104,23 @@ class ShopBanner(models.Model):
         default='image'
     )
 
-    image = models.ImageField(upload_to='banners/', null=True, blank=True)
+    # ✅ Cloudinary
+    image = CloudinaryField("image", null=True, blank=True)
 
     title = models.CharField(max_length=100, blank=True)
     subtitle = models.CharField(max_length=150, blank=True)
-
     discount = models.IntegerField(null=True, blank=True)
 
     template = models.CharField(max_length=20, default='green')
-
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.title or f"Banner {self.id}"
 
 
+# ==============================
 # 🔔 NOTIFICATION
-
+# ==============================
 
 class Notification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -149,7 +128,6 @@ class Notification(models.Model):
 
     title = models.CharField(max_length=100)
     message = models.TextField()
-
     type = models.CharField(max_length=20, default='general')
 
     is_read = models.BooleanField(default=False)
@@ -157,27 +135,23 @@ class Notification(models.Model):
 
 
 # ==============================
-# 📢 POST
+# 📊 SHOP VIEW
 # ==============================
-# models.py
-
 
 class ShopView(models.Model):
     shop = models.ForeignKey('Shop', on_delete=models.CASCADE)
     user = models.ForeignKey('auth.User', on_delete=models.CASCADE)
     viewed_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.shop.id} - {self.user.id}"
-
 
 # ==============================
 # ❤️ FAVORITE
 # ==============================
+
 class Favorite(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
-    
+
     def __str__(self):
         return f"{self.user.username} - {self.shop.name}"
 
@@ -185,8 +159,6 @@ class Favorite(models.Model):
 # ==============================
 # 👤 PROFILE
 # ==============================
-
-import random, string
 
 def generate_referral_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -210,7 +182,7 @@ class Profile(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='referred_users_profile'  # 🔥 FIXED ERROR
+        related_name='referred_users_profile'
     )
 
     def save(self, *args, **kwargs):
@@ -219,16 +191,12 @@ class Profile(models.Model):
             while Profile.objects.filter(referral_code=code).exists():
                 code = generate_referral_code()
             self.referral_code = code
-
         super().save(*args, **kwargs)
-
 
 
 # ==============================
 # 🔐 OTP
 # ==============================
-# models.py
-
 
 class OTP(models.Model):
     email = models.EmailField()
@@ -238,37 +206,35 @@ class OTP(models.Model):
     def is_valid(self):
         return timezone.now() < self.created_at + timedelta(minutes=5)
 
-    def __str__(self):
-        return f"{self.email} - {self.otp}"
-    
+
+# ==============================
+# 📸 MEDIA
+# ==============================
+
 class ShopMedia(models.Model):
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
-    image = models.ImageField(upload_to='shop_media/')
+    image = CloudinaryField("image")
+
 
 class Item(models.Model):
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
-    image = models.ImageField(upload_to='items/')
+    image = CloudinaryField("image")
     name = models.CharField(max_length=100)
     price = models.FloatField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+
 class FeaturedBanner(models.Model):
-    # 🔥 TYPE
-    BANNER_TYPE = (
-        ('image', 'Image'),
-        ('text', 'Text'),
-    )
+    BANNER_TYPE = (('image', 'Image'), ('text', 'Text'))
     banner_type = models.CharField(max_length=10, choices=BANNER_TYPE, default='image')
 
-    # IMAGE
-    image = models.ImageField(upload_to='featured_banners/', null=True, blank=True)
+    # ✅ Cloudinary
+    image = CloudinaryField("image", null=True, blank=True)
 
-    # TEXT CONTENT
     small_text = models.CharField(max_length=50, blank=True)
     title = models.CharField(max_length=100, blank=True)
     subtitle = models.CharField(max_length=150, blank=True)
 
-    # STYLE (optional)
     background_color = models.CharField(max_length=20, default='#2F5D50')
 
     is_active = models.BooleanField(default=True)
@@ -277,37 +243,34 @@ class FeaturedBanner(models.Model):
 
     def __str__(self):
         return self.title or "Banner"
-    
+
+
+# ==============================
+# 📝 FEEDBACK
+# ==============================
+
 class Feedback(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     message = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.user.username} - {self.created_at}"
-    
 
+# ==============================
+# 🔗 REFERRAL
+# ==============================
 
 class Referral(models.Model):
     referrer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='referrals_made')
     referred_user = models.OneToOneField(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.referrer.username} -> {self.referred_user.username}"
-    
 
-
-
-
-
-
-
-
+# ==============================
+# ⚙️ SETTINGS
+# ==============================
 
 class AppSettings(models.Model):
     referral_enabled = models.BooleanField(default=True)
 
     def __str__(self):
         return "App Settings"
-    
