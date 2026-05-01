@@ -1,10 +1,21 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
 
+# Virtual env
+venv/
+.env/
+
+# Environment variables
 .env
+
+# Database
 db.sqlite3
 
+# Media & static (local only)
 media/
 staticfiles/
 
-venv/
+# OS files
+.DS_Store
