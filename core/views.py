@@ -220,7 +220,7 @@ def toggle_favorite(request):
 
 
 @api_view(['GET'])
-
+@permission_classes([IsAuthenticated])
 def get_favorites(request, user_id):
     try:
         # 🔥 GET USER LOCATION
