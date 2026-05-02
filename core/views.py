@@ -1134,7 +1134,7 @@ def create_order(request):
 
     client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
 
-    amount = 4000  # ₹39
+    amount = 4000  # ₹40
 
     order = client.order.create({
         "amount": amount,
