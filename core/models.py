@@ -109,7 +109,7 @@ class ShopBanner(models.Model):
 
     title = models.CharField(max_length=100, blank=True)
     subtitle = models.CharField(max_length=150, blank=True)
-    discount = models.IntegerField(null=True, blank=True)
+    discount = models.CharField(max_length=100, null=True, blank=True)  # ✅
 
     template = models.CharField(max_length=20, default='green')
     created_at = models.DateTimeField(auto_now_add=True)
