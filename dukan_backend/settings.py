@@ -22,8 +22,10 @@ if not SECRET_KEY:
 
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = ["*"]
-
+ALLOWED_HOSTS = [
+    "api.mydukan.online",
+    ".railway.app",
+]
 CSRF_TRUSTED_ORIGINS = [
     "https://api.mydukan.online",
     "https://*.railway.app",

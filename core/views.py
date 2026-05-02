@@ -612,7 +612,7 @@ def upload_banner(request):
             return Response({'error': 'Maximum 3 offers allowed'}, status=403)
 
         image = request.FILES.get('image')
-        discount = request.data.get('discount')
+        discount = str(request.data.get('discount', ''))[:30]
         template = request.data.get('template', 'green')
         title = request.data.get('title', '')
         subtitle = request.data.get('subtitle', '')
