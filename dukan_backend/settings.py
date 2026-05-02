@@ -96,15 +96,19 @@ WSGI_APPLICATION = "dukan_backend.wsgi.application"
 # ========================
 # DATABASE (POSTGRES)
 # ========================
+import dj_database_url
+import os
 
 DATABASES = {
     "default": dj_database_url.config(
-        default=os.getenv("DATABASE_URL"),
+        default=os.getenv("DATABASE_URL", "sqlite:///db.sqlite3"),
         conn_max_age=600,
-        ssl_require=True  # IMPORTANT for Railway
     )
 }
 
+# ✅ Apply SSL ONLY for Postgres
+if "postgres" in os.getenv("DATABASE_URL", ""):
+    DATABASES["default"]["OPTIONS"] = {"sslmode": "require"}
 # ========================
 # PASSWORDS
 # ========================
