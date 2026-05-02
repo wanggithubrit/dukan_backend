@@ -621,12 +621,7 @@ def upload_banner(request):
     if discount in ['', None]:
         discount = None
     else:
-        try:
-            discount = int(discount)
-            if not (1 <= discount <= 100):
-                return Response({'error': 'Discount must be 1–100'}, status=400)
-        except:
-            return Response({'error': 'Invalid discount'}, status=400)
+        discount = str(discount).strip()
 
     # ❌ MUST HAVE ONE
     if not image and discount is None and not title:
