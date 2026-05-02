@@ -219,6 +219,7 @@ def toggle_favorite(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_favorites(request, user_id):
     try:
         # 🔥 GET USER LOCATION
@@ -494,6 +495,7 @@ def signup(request):
 
 @csrf_exempt
 @api_view(['POST'])
+
 def login(request):
     input_value = request.data.get('username') or request.data.get('email')
     password = request.data.get('password')
