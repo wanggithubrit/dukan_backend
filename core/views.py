@@ -201,6 +201,7 @@ def my_shop(request, user_id):
 # ❤️ FAVORITES
 # ==============================
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def toggle_favorite(request):
     user_id = request.data.get('user_id')
     shop_id = request.data.get('shop_id')
@@ -219,7 +220,7 @@ def toggle_favorite(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+
 def get_favorites(request, user_id):
     try:
         # 🔥 GET USER LOCATION
