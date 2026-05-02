@@ -573,16 +573,7 @@ def create_offer(request):
 
     if discount in ['', None]:
         discount = None
-    else:
-        try:
-            discount = int(discount)
-            if not (1 <= discount <= 100):
-                return Response({'error': 'Discount must be 1–100'}, status=400)
-        except:
-            return Response({'error': 'Invalid discount'}, status=400)
-
-    if not image and discount is None:
-        return Response({'error': 'Provide image or discount'}, status=400)
+    
 
     banner_type = 'image' if image else 'text'
 
