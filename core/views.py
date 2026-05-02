@@ -591,62 +591,62 @@ def create_offer(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_banner(request):
-    user = request.user
-    shop = get_object_or_404(Shop, owner=user)
-    shop.check_and_update_plan()
+    try:
+        user = request.user
+        shop = get_object_or_404(Shop, owner=user)
+        shop.check_and_update_plan()
 
-    # 🔥 SEND NOTIFICATIONS
-    notify_favorite_users(
-    shop,
-    "🔥 New Offer Available",
-    f"{shop.name} just posted a new offer!"
-)
+        try:
+            notify_favorite_users(
+                shop,
+                "🔥 New Offer Available",
+                f"{shop.name} just posted a new offer!"
+            )
+        except Exception as e:
+            print("Notification error:", e)
 
-    # 🔒 PRO ONLY
-    if not shop.is_pro_active():
-        return Response({'error': 'Upgrade to Pro'}, status=403)
+        if not shop.is_pro_active():
+            return Response({'error': 'Upgrade to Pro'}, status=403)
 
-    # 🔥 LIMIT = 3
-    if ShopBanner.objects.filter(shop=shop).count() >= 3:
-        return Response({'error': 'Maximum 3 offers allowed'}, status=403)
+        if ShopBanner.objects.filter(shop=shop).count() >= 3:
+            return Response({'error': 'Maximum 3 offers allowed'}, status=403)
 
-    image = request.FILES.get('image')
-    discount = request.data.get('discount')
-    template = request.data.get('template', 'green')
-    title = request.data.get('title', '')
-    subtitle = request.data.get('subtitle', '')
-    link = request.data.get('link', '')
+        image = request.FILES.get('image')
+        discount = request.data.get('discount')
+        template = request.data.get('template', 'green')
+        title = request.data.get('title', '')
+        subtitle = request.data.get('subtitle', '')
+        link = request.data.get('link', '')
 
-    # 🔥 CLEAN DISCOUNT
-    if discount in ['', None]:
-        discount = None
-    else:
-        discount = str(discount).strip()
+        if discount in ['', None]:
+            discount = None
+        else:
+            discount = str(discount).strip()
 
-    # ❌ MUST HAVE ONE
-    if not image and discount is None and not title:
-        return Response({'error': 'Provide image or text'}, status=400)
+        if not image and discount is None and not title:
+            return Response({'error': 'Provide image or text'}, status=400)
 
-    # 🔥 DETERMINE TYPE
-    banner_type = 'image' if image else 'text'
+        banner_type = 'image' if image else 'text'
 
-    # ✅ CREATE (THIS WAS MISSING)
-    banner = ShopBanner.objects.create(
-        shop=shop,
-        banner_type=banner_type,
-        image=image,
-        discount=discount,
-        title=title,
-        subtitle=subtitle,
-        template=template,
-    )
+        banner = ShopBanner.objects.create(
+            shop=shop,
+            banner_type=banner_type,
+            image=image,
+            discount=discount,
+            title=title,
+            subtitle=subtitle,
+            template=template,
+        )
 
-    return Response({
-        'message': 'Banner created',
-        'id': banner.id
-    })
+        return Response({
+            'message': 'Banner created',
+            'id': banner.id
+        })
+
+    except Exception as e:
+        print("UPLOAD ERROR:", str(e))
+        return Response({'error': str(e)}, status=500)
     
-
 @api_view(['GET'])
 def get_notifications(request, user_id):
     notifications = Notification.objects.filter(user_id=user_id).order_by('-created_at')
