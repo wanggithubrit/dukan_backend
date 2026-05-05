@@ -203,21 +203,21 @@ def my_shop(request, user_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def toggle_favorite(request):
-    user_id = request.data.get('user_id')
+    user = request.user   # ✅ FIX
     shop_id = request.data.get('shop_id')
 
-    user = get_object_or_404(User, id=user_id)
     shop = get_object_or_404(Shop, id=shop_id)
 
-    favorite, created = Favorite.objects.get_or_create(user=user, shop=shop)
+    favorite, created = Favorite.objects.get_or_create(
+        user=user,
+        shop=shop
+    )
 
     if not created:
         favorite.delete()
         return Response({"favorited": False})
 
     return Response({"favorited": True})
-
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
