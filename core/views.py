@@ -203,79 +203,56 @@ def my_shop(request, user_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def toggle_favorite(request):
-    user = request.user   # ✅ FIX
+    user = request.user
     shop_id = request.data.get('shop_id')
 
     shop = get_object_or_404(Shop, id=shop_id)
 
-    favorite, created = Favorite.objects.get_or_create(
-        user=user,
-        shop=shop
-    )
+    existing = Favorite.objects.filter(user=user, shop=shop).first()
 
-    if not created:
-        favorite.delete()
+    if existing:
+        existing.delete()
         return Response({"favorited": False})
 
+    Favorite.objects.create(user=user, shop=shop)
     return Response({"favorited": True})
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_favorites(request, user_id):
+def get_favorites(request):
+    user = request.user  # ✅ FIX
+
     try:
-        # 🔥 GET USER LOCATION
-        try:
-            user_lat = float(request.GET.get('lat'))
-            user_lon = float(request.GET.get('lon'))
-        except:
-            user_lat = None
-            user_lon = None
+        user_lat = float(request.GET.get('lat', 0))
+        user_lon = float(request.GET.get('lon', 0))
+    except:
+        user_lat = None
+        user_lon = None
 
-        favorites = Favorite.objects.filter(user_id=user_id)
-        result = []
+    favorites = Favorite.objects.filter(user=user)
+    result = []
 
-        for fav in favorites:
-            shop = fav.shop
+    for fav in favorites:
+        shop = fav.shop
 
-            data = ShopSerializer(
-                shop,
-                context={'request': request}
-            ).data
+        data = ShopSerializer(shop, context={'request': request}).data
 
-            # 🔥 COVER IMAGE
-            media = ShopMedia.objects.filter(shop=shop).first()
-            if media:
-                data["cover_image"] = request.build_absolute_uri(media.image.url)
-            else:
-                data["cover_image"] = data.get("image")
-
-            # 🔥 ADD DISTANCE (KEY FIX)
-            if (
-                user_lat is not None and
-                user_lon is not None and
-                shop.latitude and
-                shop.longitude
-            ):
-                distance = calculate_distance(
-                    user_lat, user_lon,
-                    shop.latitude, shop.longitude
-                )
-                data["distance"] = round(distance, 1)
-            else:
-                data["distance"] = None
-
-            result.append(data)
-
-        # 🔥 SORT BY DISTANCE (LIKE HOME)
-        result = sorted(
-            result,
-            key=lambda x: x['distance'] if x['distance'] is not None else 9999
+        media = ShopMedia.objects.filter(shop=shop).first()
+        data["cover_image"] = (
+            request.build_absolute_uri(media.image.url)
+            if media else data.get("image")
         )
 
-        return Response(result)
+        if user_lat and user_lon and shop.latitude and shop.longitude:
+            distance = calculate_distance(user_lat, user_lon, shop.latitude, shop.longitude)
+            data["distance"] = round(distance, 1)
+        else:
+            data["distance"] = None
 
-    except Exception as e:
-        return Response({"error": str(e)}, status=400)
+        result.append(data)
+
+    return Response(sorted(result, key=lambda x: x['distance'] or 9999))
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
