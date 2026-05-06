@@ -39,6 +39,7 @@ from .views import (
 from django.conf import settings
 from django.conf.urls.static import static
 from .views import merchant_dashboard
+from rest_framework_simplejwt.views import TokenRefreshView
 print("CORE URLS LOADED ✅")
 urlpatterns = [
     path('reset-password/', reset_password),

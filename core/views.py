@@ -496,7 +496,7 @@ def login(request):
     profile, _ = Profile.objects.get_or_create(user=user)
 
     refresh = RefreshToken.for_user(user)
-
+    
     return Response({
         "token": str(refresh.access_token),
         "user_id": user.id,
@@ -955,10 +955,14 @@ def verify_otp(request):
 
     record = OTP.objects.filter(email=email, otp=otp).last()
 
-    if not record:
-        return Response({'error': 'Invalid OTP'}, status=400)
+    if not record or not record.is_valid():
+        return Response({"error": "Invalid or expired OTP"}, status=400)
 
-    return Response({'message': 'OTP verified'})
+    # ✅ MARK VERIFIED
+    record.is_verified = True
+    record.save()
+
+    return Response({"success": True})
 
 
 
@@ -966,33 +970,25 @@ def verify_otp(request):
 
 @api_view(['POST'])
 def reset_password(request):
-    print("🔥 RESET API HIT")
-
     email = request.data.get('email')
     password = request.data.get('password')
 
-    print("RESET DATA:", email, password)
+    record = OTP.objects.filter(email=email, is_verified=True).last()
 
-    if not email or not password:
-        return Response({'error': 'Missing data'}, status=400)
+    if not record:
+        return Response({"error": "OTP verification required"}, status=403)
 
     user = User.objects.filter(email=email).first()
-
     if not user:
-        return Response({'error': 'User not found'}, status=404)
+        return Response({"error": "User not found"}, status=404)
 
-    # ✅ update password
     user.set_password(password)
     user.save()
 
-    # ✅ delete OTP
-    OTP.objects.filter(email=email).delete()
+    # ❗ Invalidate OTP after use
+    record.delete()
 
-    # ✅ ALWAYS RETURN RESPONSE
-    return Response({
-        'message': 'Password reset successful'
-    }, status=200)
-
+    return Response({"success": True})
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
