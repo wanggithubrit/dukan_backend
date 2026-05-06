@@ -207,17 +207,15 @@ def toggle_favorite(request):
     user = request.user
     shop_id = request.data.get('shop_id')
 
-    if not shop_id:
-        return Response({"error": "shop_id required"}, status=400)
-
     shop = get_object_or_404(Shop, id=shop_id)
 
-    fav, created = Favorite.objects.get_or_create(user=user, shop=shop)
+    fav = Favorite.objects.filter(user=user, shop=shop).first()
 
-    if not created:
+    if fav:
         fav.delete()
         return Response({"favorited": False})
 
+    Favorite.objects.create(user=user, shop=shop)
     return Response({"favorited": True})
 
 @api_view(['GET'])
