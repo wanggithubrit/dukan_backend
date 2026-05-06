@@ -925,8 +925,6 @@ from django.core.mail import send_mail
 import random
 
 
-
-
 @api_view(['POST'])
 def send_otp(request):
     email = request.data.get('email')
@@ -942,21 +940,27 @@ def send_otp(request):
 
     OTP.objects.create(email=email, otp=otp)
 
-    try:
-        send_mail(
-            'Reset Password OTP',
-            f'Your OTP is {otp}',
-            settings.EMAIL_HOST_USER,
-            [email],
-            fail_silently=False,
-        )
-        print("✅ OTP EMAIL SENT")
+    # ✅ ADD THIS
+    print("🔥 OTP GENERATED:", otp)
 
-    except Exception as e:
-        print("❌ EMAIL ERROR:", str(e))
-        return Response({'error': 'Failed to send email'}, status=500)
+    # ❌ TEMP DISABLE EMAIL (COMMENT THIS BLOCK)
+    # try:
+    #     send_mail(
+    #         'Reset Password OTP',
+    #         f'Your OTP is {otp}',
+    #         settings.EMAIL_HOST_USER,
+    #         [email],
+    #         fail_silently=False,
+    #     )
+    #     print("✅ OTP EMAIL SENT")
+    #
+    # except Exception as e:
+    #     print("❌ EMAIL ERROR:", str(e))
+    #     return Response({'error': 'Failed to send email'}, status=500)
 
-    return Response({'message': 'OTP sent'})
+    return Response({'message': 'OTP generated (check logs)'})
+
+
 
 @api_view(['POST'])
 def verify_otp(request):
