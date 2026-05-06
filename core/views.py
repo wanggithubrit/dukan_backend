@@ -926,21 +926,47 @@ import random
 
 
 import threading
+import random
+from django.conf import settings
+from django.core.mail import send_mail
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.contrib.auth.models import User
+
+from .models import OTP
+
+
+# =========================
+# 📩 SEND OTP EMAIL
+# =========================
+import smtplib
+from email.mime.text import MIMEText
+from django.conf import settings
+
 
 def send_otp_email(email, otp):
     try:
-        send_mail(
-            'Reset Password OTP',
-            f'Your OTP is {otp}',
-            'dukanpersonal316@gmail.com',  # ✅ FIXED
-            [email],
-            fail_silently=True,
-        )
-        print("✅ EMAIL SENT (background)")
+        msg = MIMEText(f"Your OTP is {otp}")
+        msg['Subject'] = 'Reset Password OTP'
+        msg['From'] = 'dukanpersonal316@gmail.com'
+        msg['To'] = email
+
+        server = smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT)
+        server.starttls()
+        server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
+
+        server.send_message(msg)
+        server.quit()
+
+        print("✅ EMAIL SENT (SMTP DIRECT)")
+
     except Exception as e:
         print("❌ EMAIL ERROR:", str(e))
 
 
+# =========================
+# 🔢 SEND OTP
+# =========================
 @api_view(['POST'])
 def send_otp(request):
     email = request.data.get('email')
@@ -953,15 +979,18 @@ def send_otp(request):
         return Response({'error': 'Email not registered'}, status=404)
 
     otp = str(random.randint(100000, 999999))
+
     OTP.objects.create(email=email, otp=otp)
 
-    # ✅ run email in background
-    threading.Thread(target=send_otp_email, args=(email, otp)).start()
+    # ✅ IMPORTANT: NO THREADING
+    send_otp_email(email, otp)
 
     return Response({'message': 'OTP sent'})
 
 
-
+# =========================
+# ✅ VERIFY OTP
+# =========================
 @api_view(['POST'])
 def verify_otp(request):
     email = request.data.get('email')
@@ -972,16 +1001,15 @@ def verify_otp(request):
     if not record or not record.is_valid():
         return Response({"error": "Invalid or expired OTP"}, status=400)
 
-    # ✅ MARK VERIFIED
     record.is_verified = True
     record.save()
 
     return Response({"success": True})
 
 
-
-
-
+# =========================
+# 🔑 RESET PASSWORD
+# =========================
 @api_view(['POST'])
 def reset_password(request):
     email = request.data.get('email')
@@ -999,10 +1027,11 @@ def reset_password(request):
     user.set_password(password)
     user.save()
 
-    # ❗ Invalidate OTP after use
+    # ❗ delete OTP after use
     record.delete()
 
     return Response({"success": True})
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
