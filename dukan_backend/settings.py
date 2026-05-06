@@ -167,6 +167,8 @@ EMAIL_HOST = "smtp-relay.brevo.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
+
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
