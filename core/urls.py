@@ -51,7 +51,7 @@ urlpatterns = [
     # 🔥 FAVORITE ROUTES
      # ❤️ FAVORITES (FIXED)
     path('favorite/toggle/', toggle_favorite),
-    path('favorites/<int:user_id>/', get_favorites),
+    path('favorites/', get_favorites),
     path('my-shop/<int:user_id>/', my_shop),
     path('shop/status/', update_shop_status),
     path('auth/signup/', signup),
