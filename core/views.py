@@ -967,6 +967,8 @@ def send_otp_email(email, otp):
 # =========================
 # 🔢 SEND OTP
 # =========================
+import threading
+
 @api_view(['POST'])
 def send_otp(request):
     email = request.data.get('email')
@@ -979,15 +981,14 @@ def send_otp(request):
         return Response({'error': 'Email not registered'}, status=404)
 
     otp = str(random.randint(100000, 999999))
-
     OTP.objects.create(email=email, otp=otp)
 
-    # ✅ IMPORTANT: NO THREADING
-    send_otp_email(email, otp)
+    # ✅ SAFE THREAD (daemon prevents hanging)
+    thread = threading.Thread(target=send_otp_email, args=(email, otp))
+    thread.daemon = True
+    thread.start()
 
     return Response({'message': 'OTP sent'})
-
-
 # =========================
 # ✅ VERIFY OTP
 # =========================
