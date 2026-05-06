@@ -946,19 +946,22 @@ from django.conf import settings
 import requests
 from django.conf import settings
 
+import requests
+from django.conf import settings
+
 def send_otp_email(email, otp):
     url = "https://api.brevo.com/v3/smtp/email"
 
     payload = {
         "sender": {
-            "name": "MyDukan",
+            "name": "Dukan",
             "email": "dukanpersonal316@gmail.com"
         },
         "to": [
             {"email": email}
         ],
         "subject": "Reset Password OTP",
-        "htmlContent": f"<h3>Your OTP is {otp}</h3>"
+        "htmlContent": f"<h2>Your OTP is {otp}</h2>"
     }
 
     headers = {
@@ -970,10 +973,9 @@ def send_otp_email(email, otp):
     try:
         response = requests.post(url, json=payload, headers=headers)
         print("BREVO RESPONSE:", response.status_code, response.text)
+
     except Exception as e:
         print("❌ BREVO ERROR:", str(e))
-
-
 # =========================
 # 🔢 SEND OTP
 # =========================
