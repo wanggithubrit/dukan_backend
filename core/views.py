@@ -200,36 +200,39 @@ def my_shop(request, user_id):
 # ==============================
 # ❤️ FAVORITES
 # ==============================
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def toggle_favorite(request):
     user = request.user
     shop_id = request.data.get('shop_id')
 
+    if not shop_id:
+        return Response({"error": "shop_id required"}, status=400)
+
     shop = get_object_or_404(Shop, id=shop_id)
 
-    existing = Favorite.objects.filter(user=user, shop=shop).first()
+    fav, created = Favorite.objects.get_or_create(user=user, shop=shop)
 
-    if existing:
-        existing.delete()
+    if not created:
+        fav.delete()
         return Response({"favorited": False})
 
-    Favorite.objects.create(user=user, shop=shop)
     return Response({"favorited": True})
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_favorites(request):
-    user = request.user  # ✅ FIX
+    user = request.user
 
     try:
-        user_lat = float(request.GET.get('lat', 0))
-        user_lon = float(request.GET.get('lon', 0))
+        user_lat = float(request.GET.get('lat'))
+        user_lon = float(request.GET.get('lon'))
     except:
         user_lat = None
         user_lon = None
 
-    favorites = Favorite.objects.filter(user=user)
+    favorites = Favorite.objects.filter(user=user).select_related('shop')
     result = []
 
     for fav in favorites:
@@ -240,10 +243,14 @@ def get_favorites(request):
         media = ShopMedia.objects.filter(shop=shop).first()
         data["cover_image"] = (
             request.build_absolute_uri(media.image.url)
-            if media else data.get("image")
+            if media and media.image else data.get("image")
         )
 
-        if user_lat and user_lon and shop.latitude and shop.longitude:
+        # ✅ FIXED CONDITION
+        if (
+            user_lat is not None and user_lon is not None and
+            shop.latitude is not None and shop.longitude is not None
+        ):
             distance = calculate_distance(user_lat, user_lon, shop.latitude, shop.longitude)
             data["distance"] = round(distance, 1)
         else:
@@ -251,8 +258,10 @@ def get_favorites(request):
 
         result.append(data)
 
-    return Response(sorted(result, key=lambda x: x['distance'] or 9999))
+    # ✅ SAFE SORT
+    result.sort(key=lambda x: x["distance"] if x["distance"] is not None else 9999)
 
+    return Response(result)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
