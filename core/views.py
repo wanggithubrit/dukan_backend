@@ -932,9 +932,9 @@ def send_otp_email(email, otp):
         send_mail(
             'Reset Password OTP',
             f'Your OTP is {otp}',
-            settings.EMAIL_HOST_USER,
+            'dukanpersonal316@gmail.com',  # ✅ FIXED
             [email],
-            fail_silently=True,  # 🔥 important
+            fail_silently=True,
         )
         print("✅ EMAIL SENT (background)")
     except Exception as e:
