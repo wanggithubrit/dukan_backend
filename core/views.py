@@ -943,25 +943,35 @@ import smtplib
 from email.mime.text import MIMEText
 from django.conf import settings
 
+import requests
+from django.conf import settings
 
 def send_otp_email(email, otp):
+    url = "https://api.brevo.com/v3/smtp/email"
+
+    payload = {
+        "sender": {
+            "name": "MyDukan",
+            "email": "dukanpersonal316@gmail.com"
+        },
+        "to": [
+            {"email": email}
+        ],
+        "subject": "Reset Password OTP",
+        "htmlContent": f"<h3>Your OTP is {otp}</h3>"
+    }
+
+    headers = {
+        "accept": "application/json",
+        "api-key": settings.BREVO_API_KEY,
+        "content-type": "application/json"
+    }
+
     try:
-        msg = MIMEText(f"Your OTP is {otp}")
-        msg['Subject'] = 'Reset Password OTP'
-        msg['From'] = 'dukanpersonal316@gmail.com'
-        msg['To'] = email
-
-        server = smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT)
-        server.starttls()
-        server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
-
-        server.send_message(msg)
-        server.quit()
-
-        print("✅ EMAIL SENT (SMTP DIRECT)")
-
+        response = requests.post(url, json=payload, headers=headers)
+        print("BREVO RESPONSE:", response.status_code, response.text)
     except Exception as e:
-        print("❌ EMAIL ERROR:", str(e))
+        print("❌ BREVO ERROR:", str(e))
 
 
 # =========================
