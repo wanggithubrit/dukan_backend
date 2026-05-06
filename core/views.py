@@ -926,6 +926,7 @@ import random
 
 @api_view(['POST'])
 def send_otp(request):
+    print("🔥 SEND OTP API HIT")  #
     email = request.data.get('email')
 
     if not email:
