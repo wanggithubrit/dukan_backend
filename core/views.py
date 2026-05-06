@@ -925,6 +925,22 @@ from django.core.mail import send_mail
 import random
 
 
+import threading
+
+def send_otp_email(email, otp):
+    try:
+        send_mail(
+            'Reset Password OTP',
+            f'Your OTP is {otp}',
+            settings.EMAIL_HOST_USER,
+            [email],
+            fail_silently=True,  # 🔥 important
+        )
+        print("✅ EMAIL SENT (background)")
+    except Exception as e:
+        print("❌ EMAIL ERROR:", str(e))
+
+
 @api_view(['POST'])
 def send_otp(request):
     email = request.data.get('email')
@@ -937,28 +953,12 @@ def send_otp(request):
         return Response({'error': 'Email not registered'}, status=404)
 
     otp = str(random.randint(100000, 999999))
-
     OTP.objects.create(email=email, otp=otp)
 
-    # ✅ ADD THIS
-    print("🔥 OTP GENERATED:", otp)
+    # ✅ run email in background
+    threading.Thread(target=send_otp_email, args=(email, otp)).start()
 
-    # ❌ TEMP DISABLE EMAIL (COMMENT THIS BLOCK)
-    # try:
-    #     send_mail(
-    #         'Reset Password OTP',
-    #         f'Your OTP is {otp}',
-    #         settings.EMAIL_HOST_USER,
-    #         [email],
-    #         fail_silently=False,
-    #     )
-    #     print("✅ OTP EMAIL SENT")
-    #
-    # except Exception as e:
-    #     print("❌ EMAIL ERROR:", str(e))
-    #     return Response({'error': 'Failed to send email'}, status=500)
-
-    return Response({'message': 'OTP generated (check logs)'})
+    return Response({'message': 'OTP sent'})
 
 
 
