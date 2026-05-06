@@ -147,10 +147,12 @@ class ShopView(models.Model):
 # ==============================
 # ❤️ FAVORITE
 # ==============================
-
 class Favorite(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('user', 'shop')  # 🔥 IMPORTANT
 
     def __str__(self):
         return f"{self.user.username} - {self.shop.name}"
