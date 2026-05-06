@@ -920,6 +920,9 @@ def shop_page(request, id):
     """)
 
 
+from django.conf import settings
+from django.core.mail import send_mail
+import random
 
 @api_view(['POST'])
 def send_otp(request):
@@ -928,24 +931,32 @@ def send_otp(request):
     if not email:
         return Response({'error': 'Email required'}, status=400)
 
-    # ✅ CHECK IF USER EXISTS
+    # ✅ check user exists
     user = User.objects.filter(email=email).first()
     if not user:
         return Response({'error': 'Email not registered'}, status=404)
 
+    # ✅ generate OTP
     otp = str(random.randint(100000, 999999))
 
     OTP.objects.create(email=email, otp=otp)
 
-    send_mail(
-        'Reset Password OTP',
-        f'Your OTP is {otp}',
-        'yourgmail@gmail.com',
-        [email],
-    )
+    # ✅ SEND EMAIL (WITH DEBUG)
+    try:
+        send_mail(
+            'Reset Password OTP',
+            f'Your OTP is {otp}',
+            settings.EMAIL_HOST_USER,
+            [email],
+            fail_silently=False,
+        )
+        print("✅ EMAIL SENT SUCCESSFULLY")
+
+    except Exception as e:
+        print("❌ EMAIL ERROR:", str(e))
+        return Response({'error': str(e)}, status=500)
 
     return Response({'message': 'OTP sent'})
-
 
 
 @api_view(['POST'])
