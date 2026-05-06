@@ -924,25 +924,24 @@ from django.conf import settings
 from django.core.mail import send_mail
 import random
 
+
+
+
 @api_view(['POST'])
 def send_otp(request):
-    print("🔥 SEND OTP API HIT")  #
     email = request.data.get('email')
 
     if not email:
         return Response({'error': 'Email required'}, status=400)
 
-    # ✅ check user exists
     user = User.objects.filter(email=email).first()
     if not user:
         return Response({'error': 'Email not registered'}, status=404)
 
-    # ✅ generate OTP
     otp = str(random.randint(100000, 999999))
 
     OTP.objects.create(email=email, otp=otp)
 
-    # ✅ SEND EMAIL (WITH DEBUG)
     try:
         send_mail(
             'Reset Password OTP',
@@ -951,14 +950,13 @@ def send_otp(request):
             [email],
             fail_silently=False,
         )
-        print("✅ EMAIL SENT SUCCESSFULLY")
+        print("✅ OTP EMAIL SENT")
 
     except Exception as e:
         print("❌ EMAIL ERROR:", str(e))
-        return Response({'error': str(e)}, status=500)
+        return Response({'error': 'Failed to send email'}, status=500)
 
     return Response({'message': 'OTP sent'})
-
 
 @api_view(['POST'])
 def verify_otp(request):
