@@ -26,15 +26,16 @@ class ShopSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_image(self, obj):
-        request = self.context.get('request')
-
         if obj.image:
-            if request:
-                return request.build_absolute_uri(obj.image.url)  # ✅ IMPORTANT
-            return obj.image.url
+            url = obj.image.url
+
+            # ✅ Force HTTPS for Cloudinary / mobile apps
+            if url.startswith("http://"):
+                url = url.replace("http://", "https://")
+
+            return url
 
         return None
-
 
 # ==============================
 # 🏪 MINI SHOP
@@ -56,10 +57,13 @@ class ShopMediaSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_image(self, obj):
-        request = self.context.get('request')
-
         if obj.image:
-            return request.build_absolute_uri(obj.image.url)
+            url = obj.image.url
+
+            if url.startswith("http://"):
+                url = url.replace("http://", "https://")
+
+            return url
 
         return None
 
@@ -75,13 +79,13 @@ class ItemSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_image(self, obj):
-        request = self.context.get('request')
-
         if obj.image:
-            if request:
-                return request.build_absolute_uri(obj.image.url)
+            url = obj.image.url
 
-            return obj.image.url
+            if url.startswith("http://"):
+                url = url.replace("http://", "https://")
+
+            return url
 
         return None
 # ==============================
@@ -113,10 +117,13 @@ class FeaturedBannerSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_image(self, obj):
-        request = self.context.get('request')
-
         if obj.image:
-            return request.build_absolute_uri(obj.image.url)
+            url = obj.image.url
+
+            if url.startswith("http://"):
+                url = url.replace("http://", "https://")
+
+            return url
 
         return None
 
