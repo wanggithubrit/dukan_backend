@@ -87,44 +87,50 @@ def get_nearby_shops(request):
             continue
 
         distance = calculate_distance(
-            user_lat, user_lon,
-            shop.latitude, shop.longitude
+            user_lat,
+            user_lon,
+            shop.latitude,
+            shop.longitude
         )
 
-        # ✅ ALWAYS DEFINE data FIRST
-        data = ShopSerializer(shop, context={'request': request}).data
+        # ✅ SHOP DATA
+        data = ShopSerializer(
+            shop,
+            context={'request': request}
+        ).data
 
-        # 🔥 COVER IMAGE FIX
+        # ✅ COVER IMAGE
         media = ShopMedia.objects.filter(shop=shop).first()
 
         if media and media.image:
             url = media.image.url
 
-    # ✅ Force HTTPS
-        if url.startswith("http://"):
-            url = url.replace("http://", "https://")
+            # ✅ FORCE HTTPS
+            if url.startswith("http://"):
+                url = url.replace("http://", "https://")
 
-        data["cover_image"] = url
+            data["cover_image"] = url
 
-    else:
-        data["cover_image"] = data.get("image")
+        else:
+            data["cover_image"] = data.get("image")
 
-        # 🔥 INCLUDE ITEMS (for search)
+        # ✅ ITEMS
         items = Item.objects.filter(shop=shop)
+
         data["items"] = ItemSerializer(
             items,
             many=True,
             context={'request': request}
         ).data
 
-        # ADD DISTANCE
+        # ✅ DISTANCE
         data["distance"] = distance
 
         result.append(data)
 
-    return Response(sorted(result, key=lambda x: x['distance']))
-
-
+    return Response(
+        sorted(result, key=lambda x: x['distance'])
+    )
 
 # ==============================
 # 🏪 SHOP
