@@ -97,10 +97,17 @@ def get_nearby_shops(request):
         # 🔥 COVER IMAGE FIX
         media = ShopMedia.objects.filter(shop=shop).first()
 
-        if media:
-            data["cover_image"] = request.build_absolute_uri(media.image.url)
-        else:
-            data["cover_image"] = data.get("image")
+        if media and media.image:
+            url = media.image.url
+
+    # ✅ Force HTTPS
+        if url.startswith("http://"):
+            url = url.replace("http://", "https://")
+
+        data["cover_image"] = url
+
+    else:
+        data["cover_image"] = data.get("image")
 
         # 🔥 INCLUDE ITEMS (for search)
         items = Item.objects.filter(shop=shop)
@@ -244,30 +251,55 @@ def get_favorites(request):
     for fav in favorites:
         shop = fav.shop
 
-        data = ShopSerializer(shop, context={'request': request}).data
+        data = ShopSerializer(
+            shop,
+            context={'request': request}
+        ).data
 
         media = ShopMedia.objects.filter(shop=shop).first()
-        data["cover_image"] = (
-            request.build_absolute_uri(media.image.url)
-            if media and media.image else data.get("image")
-        )
 
-        # ✅ FIXED CONDITION
+        # ✅ FIX COVER IMAGE HTTPS
+        if media and media.image:
+            url = media.image.url
+
+            if url.startswith("http://"):
+                url = url.replace("http://", "https://")
+
+            data["cover_image"] = url
+
+        else:
+            data["cover_image"] = data.get("image")
+
+        # ✅ DISTANCE
         if (
-            user_lat is not None and user_lon is not None and
-            shop.latitude is not None and shop.longitude is not None
+            user_lat is not None and
+            user_lon is not None and
+            shop.latitude is not None and
+            shop.longitude is not None
         ):
-            distance = calculate_distance(user_lat, user_lon, shop.latitude, shop.longitude)
+            distance = calculate_distance(
+                user_lat,
+                user_lon,
+                shop.latitude,
+                shop.longitude
+            )
+
             data["distance"] = round(distance, 1)
+
         else:
             data["distance"] = None
 
         result.append(data)
 
     # ✅ SAFE SORT
-    result.sort(key=lambda x: x["distance"] if x["distance"] is not None else 9999)
+    result.sort(
+        key=lambda x: x["distance"]
+        if x["distance"] is not None else 9999
+    )
 
     return Response(result)
+
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
