@@ -104,7 +104,11 @@ def get_nearby_shops(request):
 
         # 🔥 INCLUDE ITEMS (for search)
         items = Item.objects.filter(shop=shop)
-        data["items"] = ItemSerializer(items, many=True).data
+        data["items"] = ItemSerializer(
+            items,
+            many=True,
+            context={'request': request}
+        ).data
 
         # ADD DISTANCE
         data["distance"] = distance
@@ -159,7 +163,11 @@ def get_shop_detail(request, shop_id):
         "shop": data,
         "banners": ShopBannerSerializer(banners, many=True, context={'request': request}).data,
         "media": ShopMediaSerializer(media, many=True, context={'request': request}).data,
-        "items": ItemSerializer(items, many=True).data,
+         "items": ItemSerializer(
+            items,
+            many=True,
+            context={'request': request}
+         ).data,
     })
 
 @api_view(['PUT'])
