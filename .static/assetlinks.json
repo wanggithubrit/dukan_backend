@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.mydukan.dukanapp",
+      "sha256_cert_fingerprints": [
+        "2B:B0:DD:93:8B:C1:BA:F6:9F:7E:9C:DD:BB:D6:F1:26:57:31:7C:87:7B:25:A5:95:93:2A:C7:6F:5F:24:49:55"
+      ]
+    }
+  }
+]
