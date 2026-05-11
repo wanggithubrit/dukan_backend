@@ -41,19 +41,34 @@ from django.conf import settings
 from django.conf.urls.static import static
 from .views import merchant_dashboard
 from rest_framework_simplejwt.views import TokenRefreshView
+from django.http import JsonResponse
+
 print("CORE URLS LOADED ✅")
+def assetlinks(request):
+    data = [
+        {
+            "relation": [
+                "delegate_permission/common.handle_all_urls"
+            ],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "com.mydukan.dukanapp",
+                "sha256_cert_fingerprints": [
+                    "2B:B0:DD:93:8B:C1:BA:F6:9F:7E:9C:DD:BB:D6:F1:26:57:31:7C:87:7B:25:A5:95:93:2A:C7:6F:5F:24:49:55"
+                ]
+            }
+        }
+    ]
+
+    return JsonResponse(data, safe=False)
+
+
+
 urlpatterns = [
     path('reset-password/', reset_password),
     path('shops/', get_nearby_shops),
 
-    path(
-    '.well-known/assetlinks.json',
-    TemplateView.as_view(
-        template_name='assetlinks.json',
-        content_type='application/json',
-    ),
-),
-
+    path('.well-known/assetlinks.json', assetlinks),
     path('shops/<int:shop_id>/', get_shop_detail),
   
 
