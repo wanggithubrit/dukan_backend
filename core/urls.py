@@ -50,7 +50,7 @@ urlpatterns = [
     path('reset-password/', reset_password),
     path('shops/', get_nearby_shops),
 
-    
+    path('shop/<int:id>/', shop_page),
     path('shops/<int:shop_id>/', get_shop_detail),
   
 
