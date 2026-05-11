@@ -8,7 +8,6 @@ import dj_database_url
 # BASE
 # ========================
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv()
@@ -82,7 +81,7 @@ ROOT_URLCONF = "dukan_backend.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        'DIRS': [BASE_DIR / "templates"],
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
