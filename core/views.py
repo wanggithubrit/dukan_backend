@@ -907,37 +907,59 @@ def update_avatar(request):
     })
 
 
-
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from .models import Shop
 
+
 def shop_page(request, id):
+
     shop = get_object_or_404(Shop, id=id)
+
+    playstore_link = (
+        "https://play.google.com/store/apps/details?"
+        "id=com.mydukan.dukanapp"
+    )
+
+    deep_link = f"dukan://shop/{shop.id}"
 
     return HttpResponse(f"""
         <html>
         <head>
+
             <title>{shop.name}</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+            <meta name="viewport"
+                  content="width=device-width, initial-scale=1.0">
+
+            <!-- Open Graph -->
+            <meta property="og:title" content="{shop.name}" />
+            <meta property="og:description"
+                  content="Open this shop in Dukan" />
+
             <style>
+
                 body {{
                     font-family: Arial;
                     padding: 20px;
                     background: #f4f6f5;
                 }}
+
                 .card {{
                     background: white;
                     padding: 20px;
                     border-radius: 12px;
                     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
                 }}
+
                 h1 {{
                     margin-bottom: 10px;
                 }}
+
                 p {{
                     color: #555;
                 }}
+
                 .btn {{
                     margin-top: 15px;
                     padding: 12px;
@@ -948,19 +970,39 @@ def shop_page(request, id):
                     text-decoration: none;
                     display: inline-block;
                 }}
+
             </style>
+
+            <script>
+
+                // Try opening app
+                window.location.href = "{deep_link}";
+
+                // If app not installed → Play Store
+                setTimeout(function() {{
+                    window.location.href = "{playstore_link}";
+                }}, 1500);
+
+            </script>
+
         </head>
 
         <body>
+
             <div class="card">
+
                 <h1>{shop.name}</h1>
+
                 <p>📍 {shop.address}</p>
+
                 <p>📞 {shop.phone}</p>
 
                 <a class="btn" href="tel:{shop.phone}">
                     Call Now
                 </a>
+
             </div>
+
         </body>
         </html>
     """)
