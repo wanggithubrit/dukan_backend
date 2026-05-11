@@ -1,4 +1,5 @@
 from django.urls import path, include
+from django.views.generic import TemplateView
 from .views import (
    
     create_item,
@@ -45,6 +46,13 @@ urlpatterns = [
     path('reset-password/', reset_password),
     path('shops/', get_nearby_shops),
 
+    path(
+    '.well-known/assetlinks.json',
+    TemplateView.as_view(
+        template_name='assetlinks.json',
+        content_type='application/json',
+    ),
+),
 
     path('shops/<int:shop_id>/', get_shop_detail),
   
@@ -90,6 +98,7 @@ urlpatterns = [
     path('merchant/banners/', merchant_banners),
     path('banner/delete/<int:banner_id>/', delete_banner),
     path('shop/delete-cover/', delete_shop_cover),
+    
     ]
 
 
