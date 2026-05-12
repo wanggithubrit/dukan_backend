@@ -417,28 +417,32 @@ def merchant_dashboard(request, user_id):
 @api_view(['POST'])
 def signup(request):
     try:
-        username   = request.data.get('username', '').strip()
-        password   = request.data.get('password', '').strip()
-        email      = request.data.get('email', '').strip().lower()
-        role       = request.data.get('role', 'customer')
-        ref_code   = request.data.get('referral_code', '').strip()
+        username = request.data.get('username', '').strip()
+        password = request.data.get('password', '').strip()
+        email    = request.data.get('email', '').strip().lower()
+        role     = request.data.get('role', 'customer')
+        ref_code = request.data.get('referral_code', '').strip()
  
         # ── Basic validation ──────────────────────────────────────
         if not username or not password or not email:
             return Response({"error": "Missing fields"}, status=400)
  
         if len(password) < 6:
-            return Response(
-                {"error": "Password must be at least 6 characters"},
-                status=400
-            )
+            return Response({"error": "Password must be at least 6 characters"}, status=400)
  
-        existing_by_email = User.objects.filter(email=email).first()
+        existing_by_email    = User.objects.filter(email=email).first()
         existing_by_username = User.objects.filter(username=username).first()
  
+        # ── Merchant→Customer: always hard block ──────────────────
+        if existing_by_email and role == 'customer':
+            profile = Profile.objects.filter(user=existing_by_email).first()
+            if profile and profile.role == 'merchant':
+                return Response(
+                    {"error": "This email is registered to a merchant account."},
+                    status=400,
+                )
+ 
         # ── Customer→Merchant upgrade path ────────────────────────
-        # If this email already belongs to a customer and the new
-        # request is for a merchant role, upgrade instead of reject.
         if (
             existing_by_email
             and role == 'merchant'
@@ -447,28 +451,18 @@ def signup(request):
         ):
             user = existing_by_email
  
-            # Username collision check (only if they're changing it)
-            if (
-                username != user.username
-                and User.objects.filter(username=username).exists()
-            ):
-                return Response(
-                    {"error": "Username already taken"},
-                    status=400
-                )
+            if username != user.username and User.objects.filter(username=username).exists():
+                return Response({"error": "Username already taken"}, status=400)
  
-            # Update username/password only if different
             if username and username != user.username:
                 user.username = username
             user.set_password(password)
             user.save()
  
-            # Upgrade profile role
             profile = user.profile
             profile.role = 'merchant'
             profile.save()
  
-            # Create shop (only if one doesn't exist yet)
             if not Shop.objects.filter(owner=user).exists():
                 try:
                     lat = float(request.data.get('latitude', 0))
@@ -491,29 +485,18 @@ def signup(request):
                 "user_id": user.id,
                 "username": user.username,
                 "role": "merchant",
-                "upgraded": True,   # ← frontend can show "Account upgraded" toast
+                "upgraded": True,
             })
  
-        # ── Normal duplicate checks (new user path) ───────────────
+        # ── Normal duplicate checks ───────────────────────────────
         if existing_by_username:
-            return Response(
-                {"error": "Username already exists"},
-                status=400
-            )
+            return Response({"error": "Username already exists"}, status=400)
  
         if existing_by_email:
-            # Email taken by a merchant or another merchant — hard block
-            return Response(
-                {"error": "Email already registered"},
-                status=400
-            )
+            return Response({"error": "Email already registered"}, status=400)
  
         # ── Create new user ───────────────────────────────────────
-        user = User.objects.create_user(
-            username=username,
-            email=email,
-            password=password
-        )
+        user = User.objects.create_user(username=username, email=email, password=password)
  
         profile, _ = Profile.objects.get_or_create(user=user)
         profile.role = role
@@ -525,10 +508,7 @@ def signup(request):
         referrer = None
  
         if referral_enabled and ref_code and role == 'merchant':
-            referrer = Profile.objects.filter(
-                referral_code=ref_code.upper()
-            ).first()
- 
+            referrer = Profile.objects.filter(referral_code=ref_code.upper()).first()
             if referrer and referrer.user != user:
                 profile.referred_by = referrer.user
                 profile.save()
@@ -554,23 +534,17 @@ def signup(request):
         if referral_enabled and referrer:
             shop = Shop.objects.filter(owner=referrer.user).first()
             if shop:
-                if shop.plan == 'pro' and shop.plan_expiry:
-                    if timezone.now() > shop.plan_expiry:
-                        shop.plan = 'free'
-                        shop.plan_expiry = None
-                        shop.save()
+                if shop.plan == 'pro' and shop.plan_expiry and timezone.now() > shop.plan_expiry:
+                    shop.plan = 'free'
+                    shop.plan_expiry = None
+                    shop.save()
  
-                count = Profile.objects.filter(
-                    referred_by=referrer.user,
-                    role='merchant'
-                ).count()
- 
+                count = Profile.objects.filter(referred_by=referrer.user, role='merchant').count()
                 if count >= 3 and shop.plan == 'free':
                     shop.plan = 'pro'
                     shop.plan_expiry = timezone.now() + timedelta(days=30)
                     shop.save()
  
-        # ── Return token ──────────────────────────────────────────
         refresh = RefreshToken.for_user(user)
         return Response({
             "token": str(refresh.access_token),
@@ -583,8 +557,7 @@ def signup(request):
         import traceback
         traceback.print_exc()
         return Response({"error": str(e)}, status=500)
-
-
+ 
 
 
 @csrf_exempt
@@ -1139,6 +1112,21 @@ def send_otp(request):
     if not email:
         return Response({'error': 'Email required'}, status=400)
  
+    # ── Check if this email already belongs to a merchant ──────────
+    existing_user = User.objects.filter(email=email).first()
+ 
+    if existing_user:
+        profile = Profile.objects.filter(user=existing_user).first()
+        if profile and profile.role == 'merchant':
+            return Response(
+                {'error': 'This email is registered to a merchant account and cannot be used for a customer account.'},
+                status=400,
+            )
+ 
+    # ── Clean up old unverified OTPs for this email ────────────────
+    OTP.objects.filter(email=email, is_verified=False).delete()
+ 
+    # ── Generate and send ──────────────────────────────────────────
     otp = str(random.randint(100000, 999999))
     OTP.objects.create(email=email, otp=otp)
  
@@ -1147,6 +1135,9 @@ def send_otp(request):
     thread.start()
  
     return Response({'message': 'OTP sent'})
+ 
+
+
 # =========================
 # ✅ VERIFY OTP
 # =========================
