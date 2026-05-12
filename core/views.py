@@ -1104,36 +1104,35 @@ def send_otp_email(email, otp):
 # 🔢 SEND OTP
 # =========================
 import threading
-
 @api_view(['POST'])
 def send_otp(request):
     email = request.data.get('email', '').strip().lower()
- 
+    purpose = request.data.get('purpose', 'reset')  # 'signup' or 'reset'
+
     if not email:
         return Response({'error': 'Email required'}, status=400)
- 
-    # ── Check if this email already belongs to a merchant ──────────
-    existing_user = User.objects.filter(email=email).first()
- 
-    if existing_user:
-        profile = Profile.objects.filter(user=existing_user).first()
-        if profile and profile.role == 'merchant':
-            return Response(
-                {'error': 'This email is registered to a merchant account and cannot be used for a customer account.'},
-                status=400,
-            )
- 
-    # ── Clean up old unverified OTPs for this email ────────────────
+
+    # Only block merchant emails during customer signup
+    if purpose == 'signup':
+        existing = User.objects.filter(email=email).first()
+        if existing:
+            profile = Profile.objects.filter(user=existing).first()
+            if profile and profile.role == 'merchant':
+                return Response(
+                    {'error': 'This email belongs to a merchant account.'},
+                    status=400,
+                )
+
+    # Clean old OTPs
     OTP.objects.filter(email=email, is_verified=False).delete()
- 
-    # ── Generate and send ──────────────────────────────────────────
+
     otp = str(random.randint(100000, 999999))
     OTP.objects.create(email=email, otp=otp)
- 
+
     thread = threading.Thread(target=send_otp_email, args=(email, otp))
     thread.daemon = True
     thread.start()
- 
+
     return Response({'message': 'OTP sent'})
  
 
