@@ -413,69 +413,134 @@ def merchant_dashboard(request, user_id):
 # 🔐 AUTH
 # ==============================
 
-
-
-
 @csrf_exempt
 @api_view(['POST'])
 def signup(request):
     try:
-        username = request.data.get('username', '').strip()
-        password = request.data.get('password', '').strip()
-        email = request.data.get('email', '').strip().lower()
-        role = request.data.get('role', 'customer')
-        ref_code = request.data.get('referral_code', '').strip()
-
-        # 🔴 VALIDATION
+        username   = request.data.get('username', '').strip()
+        password   = request.data.get('password', '').strip()
+        email      = request.data.get('email', '').strip().lower()
+        role       = request.data.get('role', 'customer')
+        ref_code   = request.data.get('referral_code', '').strip()
+ 
+        # ── Basic validation ──────────────────────────────────────
         if not username or not password or not email:
             return Response({"error": "Missing fields"}, status=400)
-
+ 
         if len(password) < 6:
-            return Response({"error": "Password must be at least 6 characters"}, status=400)
-
-        if User.objects.filter(username=username).exists():
-            return Response({"error": "Username already exists"}, status=400)
-
-        if User.objects.filter(email=email).exists():
-            return Response({"error": "Email already registered"}, status=400)
-
-        # ✅ CREATE USER
+            return Response(
+                {"error": "Password must be at least 6 characters"},
+                status=400
+            )
+ 
+        existing_by_email = User.objects.filter(email=email).first()
+        existing_by_username = User.objects.filter(username=username).first()
+ 
+        # ── Customer→Merchant upgrade path ────────────────────────
+        # If this email already belongs to a customer and the new
+        # request is for a merchant role, upgrade instead of reject.
+        if (
+            existing_by_email
+            and role == 'merchant'
+            and hasattr(existing_by_email, 'profile')
+            and existing_by_email.profile.role == 'customer'
+        ):
+            user = existing_by_email
+ 
+            # Username collision check (only if they're changing it)
+            if (
+                username != user.username
+                and User.objects.filter(username=username).exists()
+            ):
+                return Response(
+                    {"error": "Username already taken"},
+                    status=400
+                )
+ 
+            # Update username/password only if different
+            if username and username != user.username:
+                user.username = username
+            user.set_password(password)
+            user.save()
+ 
+            # Upgrade profile role
+            profile = user.profile
+            profile.role = 'merchant'
+            profile.save()
+ 
+            # Create shop (only if one doesn't exist yet)
+            if not Shop.objects.filter(owner=user).exists():
+                try:
+                    lat = float(request.data.get('latitude', 0))
+                    lon = float(request.data.get('longitude', 0))
+                except (TypeError, ValueError):
+                    lat, lon = 0, 0
+ 
+                Shop.objects.create(
+                    owner=user,
+                    name=request.data.get('shop_name', 'My Shop'),
+                    category=request.data.get('category', 'General'),
+                    latitude=lat,
+                    longitude=lon,
+                    address=request.data.get('address', '')
+                )
+ 
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "token": str(refresh.access_token),
+                "user_id": user.id,
+                "username": user.username,
+                "role": "merchant",
+                "upgraded": True,   # ← frontend can show "Account upgraded" toast
+            })
+ 
+        # ── Normal duplicate checks (new user path) ───────────────
+        if existing_by_username:
+            return Response(
+                {"error": "Username already exists"},
+                status=400
+            )
+ 
+        if existing_by_email:
+            # Email taken by a merchant or another merchant — hard block
+            return Response(
+                {"error": "Email already registered"},
+                status=400
+            )
+ 
+        # ── Create new user ───────────────────────────────────────
         user = User.objects.create_user(
             username=username,
             email=email,
             password=password
         )
-
-        # ✅ PROFILE
+ 
         profile, _ = Profile.objects.get_or_create(user=user)
         profile.role = role
         profile.save()
-
-        # 🔥 REFERRAL TOGGLE (DB CONTROL)
+ 
+        # ── Referral (merchant only) ──────────────────────────────
         settings_obj = AppSettings.objects.first()
         referral_enabled = settings_obj.referral_enabled if settings_obj else True
-
         referrer = None
-
-        # 🔥 APPLY REFERRAL (ONLY IF ENABLED + MERCHANT)
+ 
         if referral_enabled and ref_code and role == 'merchant':
             referrer = Profile.objects.filter(
                 referral_code=ref_code.upper()
             ).first()
-
-            # ❌ prevent self-referral
+ 
             if referrer and referrer.user != user:
                 profile.referred_by = referrer.user
                 profile.save()
-
-        # ✅ CREATE SHOP IF MERCHANT
-        if role == "merchant":
+ 
+        # ── Create shop ───────────────────────────────────────────
+        if role == 'merchant':
             try:
                 lat = float(request.data.get('latitude', 0))
                 lon = float(request.data.get('longitude', 0))
-            except:
+            except (TypeError, ValueError):
                 lat, lon = 0, 0
-
+ 
             Shop.objects.create(
                 owner=user,
                 name=request.data.get('shop_name', 'My Shop'),
@@ -484,45 +549,43 @@ def signup(request):
                 longitude=lon,
                 address=request.data.get('address', '')
             )
-
-        # 🔥 REWARD REFERRER
+ 
+        # ── Reward referrer ───────────────────────────────────────
         if referral_enabled and referrer:
             shop = Shop.objects.filter(owner=referrer.user).first()
-
             if shop:
-                # 🔒 HANDLE EXPIRY FIRST
                 if shop.plan == 'pro' and shop.plan_expiry:
                     if timezone.now() > shop.plan_expiry:
                         shop.plan = 'free'
                         shop.plan_expiry = None
                         shop.save()
-
-                # 🔥 COUNT VALID MERCHANT REFERRALS
+ 
                 count = Profile.objects.filter(
                     referred_by=referrer.user,
                     role='merchant'
                 ).count()
-
-                # 🔥 APPLY REWARD (ONLY ONCE)
+ 
                 if count >= 3 and shop.plan == 'free':
                     shop.plan = 'pro'
                     shop.plan_expiry = timezone.now() + timedelta(days=30)
                     shop.save()
-
-        # ✅ TOKEN
+ 
+        # ── Return token ──────────────────────────────────────────
         refresh = RefreshToken.for_user(user)
-
         return Response({
             "token": str(refresh.access_token),
             "user_id": user.id,
             "username": user.username,
-            "role": role
+            "role": role,
         })
-
+ 
     except Exception as e:
         import traceback
-        traceback.print_exc()  # 🔥 full error in terminal
+        traceback.print_exc()
         return Response({"error": str(e)}, status=500)
+
+
+
 
 @csrf_exempt
 @api_view(['POST'])
@@ -1071,23 +1134,18 @@ import threading
 
 @api_view(['POST'])
 def send_otp(request):
-    email = request.data.get('email')
-
+    email = request.data.get('email', '').strip().lower()
+ 
     if not email:
         return Response({'error': 'Email required'}, status=400)
-
-    user = User.objects.filter(email=email).first()
-    if not user:
-        return Response({'error': 'Email not registered'}, status=404)
-
+ 
     otp = str(random.randint(100000, 999999))
     OTP.objects.create(email=email, otp=otp)
-
-    # ✅ SAFE THREAD (daemon prevents hanging)
+ 
     thread = threading.Thread(target=send_otp_email, args=(email, otp))
     thread.daemon = True
     thread.start()
-
+ 
     return Response({'message': 'OTP sent'})
 # =========================
 # ✅ VERIFY OTP
