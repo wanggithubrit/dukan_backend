@@ -36,7 +36,6 @@ class Shop(models.Model):
     phone = models.CharField(max_length=15)
     whatsapp_number = models.CharField(max_length=15, blank=True, null=True)
     address = models.TextField(blank=True)
-    has_quantity_feature = models.BooleanField(default=False)
 
     # ✅ Cloudinary
     image = CloudinaryField("image", null=True, blank=True)
@@ -229,7 +228,6 @@ class Item(models.Model):
     name = models.CharField(max_length=100)
     price = models.FloatField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    quantity = models.PositiveIntegerField(default=0)
 
 
 class FeaturedBanner(models.Model):
@@ -282,25 +280,3 @@ class AppSettings(models.Model):
 
     def __str__(self):
         return "App Settings"
-
-
-
-#  quantity payment
-class FeaturePurchase(models.Model):
-    FEATURE_CHOICES = [
-        ('inventory', 'Inventory Feature'),
-    ]
-
-    shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
-
-    feature = models.CharField(
-        max_length=50,
-        choices=FEATURE_CHOICES
-    )
-
-    payment_id = models.CharField(max_length=255)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.shop.name} - {self.feature}"

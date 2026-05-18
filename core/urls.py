@@ -34,9 +34,7 @@ from .views import (
     delete_notification,
     delete_all_notifications,
     delete_shop_cover,
-    merchant_banners,
-    create_inventory_feature_order,
-    verify_inventory_feature_payment
+    merchant_banners
 )
 
 from django.conf import settings
@@ -97,15 +95,6 @@ urlpatterns = [
     path('merchant/banners/', merchant_banners),
     path('banner/delete/<int:banner_id>/', delete_banner),
     path('shop/delete-cover/', delete_shop_cover),
-   path(
-    'payment/inventory/create/',
-    create_inventory_feature_order
-),
-
-path(
-    'payment/inventory/verify/',
-    verify_inventory_feature_payment
-),
     
     ]
 

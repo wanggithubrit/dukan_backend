@@ -73,7 +73,6 @@ class ShopMediaSerializer(serializers.ModelSerializer):
 # ==============================
 class ItemSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
-    fields = "__all__"
 
     class Meta:
         model = Item
