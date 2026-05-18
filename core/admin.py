@@ -10,6 +10,8 @@ from .models import (
     Feedback,
     AppSettings,
 )
+from .models import FeaturePurchase
+
 
 
 # ─────────────────────────────
@@ -19,6 +21,7 @@ admin.site.register(Favorite)
 admin.site.register(ShopMedia)
 admin.site.register(Feedback)
 admin.site.register(AppSettings)
+admin.site.register(FeaturePurchase)
 
 
 # ─────────────────────────────

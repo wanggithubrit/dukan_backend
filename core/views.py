@@ -25,6 +25,10 @@ from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from .serializers import NotificationSerializer
+import razorpay
+from django.conf import settings
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
 
 from django.conf import settings
@@ -37,6 +41,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from core.models import Shop
+from .models import FeaturePurchase
 
 
 
@@ -51,6 +56,10 @@ from .models import Shop,Favorite, Profile,ShopBanner, Notification,ShopMedia,Fe
 from .serializers import ShopSerializer, ShopBannerSerializer,ShopMediaSerializer, ItemSerializer,FeaturedBannerSerializer
 import math
 
+client = razorpay.Client(auth=(
+    settings.RAZORPAY_KEY_ID,
+    settings.RAZORPAY_KEY_SECRET
+))
 
 # ==============================
 # 🔧 HELPERS
@@ -1334,3 +1343,99 @@ def verify_payment(request):
     except Exception as e:
         print(e)
         return Response({"status": "failed"}, status=400)
+
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_inventory_feature_order(request):
+
+    user = request.user
+
+    try:
+        shop = Shop.objects.get(owner=user)
+
+    except Shop.DoesNotExist:
+        return Response(
+            {"error": "Shop not found"},
+            status=404
+        )
+
+    # Already unlocked
+    if shop.has_inventory_feature:
+        return Response(
+            {"error": "Feature already unlocked"},
+            status=400
+        )
+
+    amount = 10000  # ₹100 in paise
+
+    order_data = {
+        "amount": amount,
+        "currency": "INR",
+        "payment_capture": 1
+    }
+
+    order = client.order.create(data=order_data)
+
+    return Response({
+        "success": True,
+        "order": order
+    })
+
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def verify_inventory_feature_payment(request):
+
+    user = request.user
+
+    data = request.data
+
+    try:
+        shop = Shop.objects.get(owner=user)
+
+    except Shop.DoesNotExist:
+        return Response(
+            {"error": "Shop not found"},
+            status=404
+        )
+
+    # Already unlocked
+    if shop.has_inventory_feature:
+        return Response({
+            "message": "Already unlocked"
+        })
+
+    params_dict = {
+        'razorpay_order_id': data['order_id'],
+        'razorpay_payment_id': data['payment_id'],
+        'razorpay_signature': data['signature']
+    }
+
+    try:
+        client.utility.verify_payment_signature(params_dict)
+
+        # 🔥 Unlock feature
+        shop.has_inventory_feature = True
+        shop.save()
+
+        # 🔥 Save purchase
+        FeaturePurchase.objects.create(
+            shop=shop,
+            feature='inventory',
+            payment_id=data['payment_id']
+        )
+
+        return Response({
+            "success": True,
+            "message": "Inventory feature unlocked"
+        })
+
+    except Exception as e:
+        print(e)
+
+        return Response({
+            "error": "Payment verification failed"
+        }, status=400)
