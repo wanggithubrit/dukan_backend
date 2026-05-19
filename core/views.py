@@ -791,14 +791,120 @@ def create_item(request):
     if not image:
         return Response({'error': 'Image required'}, status=400)
 
+    # ─────────────────────────────
+# 🔒 QUANTITY FEATURE SECURITY
+# ─────────────────────────────
+    track_quantity = False
+    quantity = 0
+
+# Merchant purchased feature
+    if shop.has_quantity_feature:
+
+        track_quantity = (
+            str(request.data.get('track_quantity'))
+            .lower() == 'true'
+        )
+
+        try:
+            quantity = int(request.data.get('quantity', 0))
+        except:
+            quantity = 0
+
+    # Prevent negative stock
+        if quantity < 0:
+            quantity = 0
+
+
     Item.objects.create(
         shop=shop,
         image=image,
         name=request.data.get('name'),
-        price=request.data.get('price')
+        price=request.data.get('price'),
+
+    # NEW
+        track_quantity=track_quantity,
+        quantity=quantity,
     )
 
     return Response({'message': 'Item created'})
+
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_item(request, item_id):
+
+    user = request.user
+
+    item = get_object_or_404(Item, id=item_id)
+
+    # 🔒 OWNER CHECK
+    if item.shop.owner != user:
+        return Response(
+            {'error': 'Not allowed'},
+            status=403
+        )
+
+    shop = item.shop
+
+    # ─────────────────────────────
+    # BASIC FIELDS
+    # ─────────────────────────────
+    item.name = request.data.get(
+        'name',
+        item.name
+    )
+
+    item.price = request.data.get(
+        'price',
+        item.price
+    )
+
+    item.description = request.data.get(
+        'description',
+        item.description
+    )
+
+    # OPTIONAL IMAGE UPDATE
+    image = request.FILES.get('image')
+
+    if image:
+        item.image = image
+
+    # ─────────────────────────────
+    # 🔒 QUANTITY FEATURE SECURITY
+    # ─────────────────────────────
+    if shop.has_quantity_feature:
+
+        track_quantity = (
+            str(request.data.get('track_quantity'))
+            .lower() == 'true'
+        )
+
+        try:
+            quantity = int(
+                request.data.get('quantity', 0)
+            )
+        except:
+            quantity = 0
+
+        # Prevent negative stock
+        if quantity < 0:
+            quantity = 0
+
+        item.track_quantity = track_quantity
+        item.quantity = quantity
+
+    else:
+        # HARD LOCK
+        item.track_quantity = False
+        item.quantity = 0
+
+    item.save()
+
+    return Response({
+        'message': 'Item updated'
+    })
 
 
 
@@ -818,6 +924,75 @@ def delete_item(request, item_id):
 
     item.delete()
     return Response({'message': 'Deleted'})
+
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_quantity_order(request):
+
+    client = razorpay.Client(
+        auth=(
+            settings.RAZORPAY_KEY_ID,
+            settings.RAZORPAY_KEY_SECRET
+        )
+    )
+
+    amount = 10000  # ₹100
+
+    order = client.order.create({
+        "amount": amount,
+        "currency": "INR",
+        "payment_capture": 1
+    })
+
+    return Response({
+        "order_id": order['id'],
+        "amount": amount,
+        "key": settings.RAZORPAY_KEY_ID
+    })
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def verify_quantity_payment(request):
+
+    client = razorpay.Client(
+        auth=(
+            settings.RAZORPAY_KEY_ID,
+            settings.RAZORPAY_KEY_SECRET
+        )
+    )
+
+    data = request.data
+
+    params_dict = {
+        'razorpay_order_id': data['order_id'],
+        'razorpay_payment_id': data['payment_id'],
+        'razorpay_signature': data['signature']
+    }
+
+    try:
+
+        # ✅ VERIFY PAYMENT
+        client.utility.verify_payment_signature(params_dict)
+
+        # ✅ UNLOCK FEATURE
+        shop = Shop.objects.get(owner=request.user)
+
+        shop.has_quantity_feature = True
+        shop.save()
+
+        return Response({
+            "status": "success",
+            "message": "Quantity feature unlocked"
+        })
+
+    except Exception as e:
+        print(e)
+
+        return Response({
+            "status": "failed"
+        }, status=400)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

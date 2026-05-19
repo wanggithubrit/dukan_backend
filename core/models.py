@@ -32,7 +32,7 @@ class Shop(models.Model):
 
     name = models.CharField(max_length=100)
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
-
+    has_quantity_feature = models.BooleanField(default=False)
     phone = models.CharField(max_length=15)
     whatsapp_number = models.CharField(max_length=15, blank=True, null=True)
     address = models.TextField(blank=True)
@@ -228,6 +228,8 @@ class Item(models.Model):
     name = models.CharField(max_length=100)
     price = models.FloatField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    quantity = models.PositiveIntegerField(default=0)
+    track_quantity = models.BooleanField(default=False)
 
 
 class FeaturedBanner(models.Model):

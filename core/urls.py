@@ -34,7 +34,10 @@ from .views import (
     delete_notification,
     delete_all_notifications,
     delete_shop_cover,
-    merchant_banners
+    merchant_banners,
+    update_item,
+    create_quantity_order,
+    verify_quantity_payment,
 )
 
 from django.conf import settings
@@ -78,6 +81,7 @@ urlpatterns = [
     path('shop/update/', update_shop),
     path('items/<int:shop_id>/', get_items),
     path('item/delete/<int:item_id>/', delete_item),
+    path('item/update/<int:item_id>/', update_item),
     path('shop/upgrade/', upgrade_plan),
     path('banner/delete/<int:banner_id>/', delete_banner),
     path('banners/featured/', get_featured_banners),
@@ -95,7 +99,15 @@ urlpatterns = [
     path('merchant/banners/', merchant_banners),
     path('banner/delete/<int:banner_id>/', delete_banner),
     path('shop/delete-cover/', delete_shop_cover),
-    
+    path(
+    'payment/quantity/create/',
+    create_quantity_order
+),
+
+path(
+    'payment/quantity/verify/',
+    verify_quantity_payment
+),
     ]
 
 
