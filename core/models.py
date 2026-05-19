@@ -226,11 +226,19 @@ class Item(models.Model):
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
     image = CloudinaryField("image")
     name = models.CharField(max_length=100)
-    price = models.FloatField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    quantity = models.PositiveIntegerField(default=0)
-    track_quantity = models.BooleanField(default=False)
 
+    description = models.TextField(
+        blank=True,
+        null=True
+    )
+
+    price = models.FloatField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    quantity = models.PositiveIntegerField(default=0)
+
+    track_quantity = models.BooleanField(default=False)
 
 class FeaturedBanner(models.Model):
     BANNER_TYPE = (('image', 'Image'), ('text', 'Text'))
