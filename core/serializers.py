@@ -74,6 +74,7 @@ class ShopMediaSerializer(serializers.ModelSerializer):
 class ItemSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
     quantity_status = serializers.SerializerMethodField()
+    shop_has_quantity_feature = serializers.SerializerMethodField()
 
     class Meta:
         model = Item
@@ -87,6 +88,7 @@ class ItemSerializer(serializers.ModelSerializer):
             'quantity',
             'track_quantity',
             'quantity_status',
+            'shop_has_quantity_feature',
         ]
 
     def get_image(self, obj):
@@ -115,6 +117,10 @@ class ItemSerializer(serializers.ModelSerializer):
             return "low"
 
         return "in"
+
+    def get_shop_has_quantity_feature(self, obj):
+        return obj.shop.has_quantity_feature
+
 # ==============================
 # 🎯 BANNERS
 # ==============================
