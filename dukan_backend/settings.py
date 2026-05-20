@@ -26,11 +26,13 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = [
     "api.mydukan.online",
-    ".railway.app",
+    ".onrender.com",
+    "localhost",
+    "127.0.0.1",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://api.mydukan.online",
-    "https://*.railway.app",
+    "https://*.onrender.com",
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True  # easier for mobile apps
