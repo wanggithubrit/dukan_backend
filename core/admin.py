@@ -24,34 +24,76 @@ admin.site.register(AppSettings)
 # ─────────────────────────────
 # FEATURED BANNER ADMIN
 # ─────────────────────────────
+from django.contrib import admin
+from .models import FeaturedBanner
+
+from django.contrib import admin
+from .models import FeaturedBanner
+
 @admin.register(FeaturedBanner)
 class FeaturedBannerAdmin(admin.ModelAdmin):
-    list_display = ['id', 'banner_type', 'title', 'is_active', 'link']
 
-    fieldsets = (
-        ("Type", {
-            'fields': ('banner_type',)
-        }),
-
-        ("Image Banner", {
-            'fields': ('image',),
-        }),
-
-        ("Text Banner", {
-            'fields': ('small_text', 'title', 'subtitle', 'background_color'),
-        }),
-
-        ("Link (Optional)", {
-            'fields': ('link',),
-            'description': 'Add URL (e.g. https://...)',
-        }),
-
-        ("Control", {
-            'fields': ('is_active',),
-        }),
+    list_display = (
+        'id',
+        'title',
+        'visibility_radius',
+        'global_banner',
+        'expires_at',
+        'is_active',
+        'created_at',
+        'priority',
+        'is_sponsored',
     )
 
+    list_filter = (
+        'is_active',
+        'global_banner',
+        'visibility_radius',
+        'is_sponsored',
+    )
 
+    search_fields = (
+        'title',
+        'subtitle',
+    )
+
+    readonly_fields = (
+        'created_at',
+    )
+
+    fieldsets = (
+
+        ('Banner Content', {
+            'fields': (
+                'title',
+                'subtitle',
+                'small_text',
+                'image',
+                'banner_type',
+                'background_color',
+                'link',
+            )
+        }),
+
+        ('Location Targeting', {
+            'fields': (
+                'global_banner',
+                'latitude',
+                'longitude',
+                'visibility_radius',
+            )
+        }),
+
+        ('Banner Status', {
+            'fields': (
+                'expires_at',
+                'is_active',
+                'created_at',
+                'priority',
+                'is_sponsored',
+            )
+        }),
+    )
 # ─────────────────────────────
 # SHOP ADMIN (FIXED VERSION)
 # ─────────────────────────────

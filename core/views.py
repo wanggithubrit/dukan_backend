@@ -1061,16 +1061,87 @@ def check_plan_expiry(shop):
 
 
 
+from geopy.distance import geodesic
+from django.utils import timezone
 
 @api_view(['GET'])
 @authentication_classes([])
 @permission_classes([AllowAny])
 def get_featured_banners(request):
-    banners = FeaturedBanner.objects.filter(is_active=True).order_by('-id')
+
+    lat = request.GET.get('lat')
+    lon = request.GET.get('lon')
+
+    now = timezone.now()
+
+    banners = FeaturedBanner.objects.filter(
+        is_active=True
+    ).order_by('-id')
+
+    visible_banners = []
+
+    for banner in banners:
+
+        # EXPIRED
+        if banner.expires_at and banner.expires_at < now:
+            continue
+
+        # GLOBAL BANNER
+        if banner.global_banner:
+            visible_banners.append(banner)
+            continue
+
+        # NO LOCATION
+        if not lat or not lon:
+            continue
+
+        # BANNER HAS NO LOCATION
+        if banner.latitude is None or banner.longitude is None:
+            continue
+
+        try:
+            user_location = (
+                float(lat),
+                float(lon)
+            )
+
+            banner_location = (
+                banner.latitude,
+                banner.longitude
+            )
+
+            distance = geodesic(
+                user_location,
+                banner_location
+            ).km
+
+            if distance <= banner.visibility_radius:
+                visible_banners.append(banner)
+
+        except:
+            continue
+
+    # SORT:
+# 1. sponsored first
+# 2. higher priority first
+
+    visible_banners.sort(
+        key=lambda b: (
+            not b.is_sponsored,
+            -b.priority
+        )
+    )
+
+    # FALLBACK
+    if not visible_banners:
+        visible_banners = FeaturedBanner.objects.filter(
+            is_active=True,
+            global_banner=True
+        )
 
     return Response(
         FeaturedBannerSerializer(
-            banners,
+            visible_banners,
             many=True,
             context={'request': request}
         ).data

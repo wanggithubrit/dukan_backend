@@ -241,21 +241,75 @@ class Item(models.Model):
     track_quantity = models.BooleanField(default=False)
 
 class FeaturedBanner(models.Model):
-    BANNER_TYPE = (('image', 'Image'), ('text', 'Text'))
-    banner_type = models.CharField(max_length=10, choices=BANNER_TYPE, default='image')
 
-    # ✅ Cloudinary
-    image = CloudinaryField("image", null=True, blank=True)
+    title = models.CharField(max_length=200, blank=True)
+    subtitle = models.CharField(max_length=300, blank=True)
 
-    small_text = models.CharField(max_length=50, blank=True)
-    title = models.CharField(max_length=100, blank=True)
-    subtitle = models.CharField(max_length=150, blank=True)
+    image = models.ImageField(
+        upload_to='featured_banners/',
+        blank=True,
+        null=True
+    )
 
-    background_color = models.CharField(max_length=20, default='#2F5D50')
+    banner_type = models.CharField(
+        max_length=20,
+        default='image'
+    )
+
+    background_color = models.CharField(
+        max_length=20,
+        default='#1B6B50'
+    )
+
+    small_text = models.CharField(
+        max_length=100,
+        blank=True
+    )
+    # HIGHER NUMBER = HIGHER PRIORITY
+    priority = models.IntegerField(
+        default=0
+    )
+
+# OPTIONAL SPONSORED TAG
+    is_sponsored = models.BooleanField(
+        default=False
+    )
+    # OPTIONAL LINK
+    link = models.URLField(
+        blank=True,
+        null=True
+    )
+
+    # LOCATION
+    latitude = models.FloatField(
+        blank=True,
+        null=True
+    )
+
+    longitude = models.FloatField(
+        blank=True,
+        null=True
+    )
+
+    # 25 / 50 / etc
+    visibility_radius = models.IntegerField(
+        default=25
+    )
+
+    # SHOW EVERYWHERE
+    global_banner = models.BooleanField(
+        default=False
+    )
+
+    # EXPIRY
+    expires_at = models.DateTimeField(
+        blank=True,
+        null=True
+    )
 
     is_active = models.BooleanField(default=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
-    link = models.URLField(blank=True, null=True)
 
     def __str__(self):
         return self.title or "Banner"
