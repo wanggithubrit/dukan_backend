@@ -1,0 +1,1 @@
+web: gunicorn dukan_backend.wsgi
