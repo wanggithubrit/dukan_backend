@@ -12,3 +12,4 @@ requests
 razorpay
 pyjwt
 python-dotenv
+djangorestframework-simplejwt
