@@ -1061,8 +1061,28 @@ def check_plan_expiry(shop):
 
 
 
-from geopy.distance import geodesic
+from math import radians, cos, sin, asin, sqrt
 from django.utils import timezone
+
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+
+    lon1 = radians(lon1)
+    lon2 = radians(lon2)
+    lat1 = radians(lat1)
+    lat2 = radians(lat2)
+
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+
+    c = 2 * asin(sqrt(a))
+
+    r = 6371  # Earth radius in KM
+
+    return c * r
+
 
 @api_view(['GET'])
 @authentication_classes([])
@@ -1100,20 +1120,13 @@ def get_featured_banners(request):
             continue
 
         try:
-            user_location = (
-                float(lat),
-                float(lon)
-            )
 
-            banner_location = (
+            distance = calculate_distance(
+                float(lat),
+                float(lon),
                 banner.latitude,
                 banner.longitude
             )
-
-            distance = geodesic(
-                user_location,
-                banner_location
-            ).km
 
             if distance <= banner.visibility_radius:
                 visible_banners.append(banner)
@@ -1122,8 +1135,8 @@ def get_featured_banners(request):
             continue
 
     # SORT:
-# 1. sponsored first
-# 2. higher priority first
+    # 1. sponsored first
+    # 2. higher priority first
 
     visible_banners.sort(
         key=lambda b: (
@@ -1134,10 +1147,11 @@ def get_featured_banners(request):
 
     # FALLBACK
     if not visible_banners:
+
         visible_banners = FeaturedBanner.objects.filter(
             is_active=True,
             global_banner=True
-        )
+        ).order_by('-priority', '-id')
 
     return Response(
         FeaturedBannerSerializer(
@@ -1146,6 +1160,7 @@ def get_featured_banners(request):
             context={'request': request}
         ).data
     )
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
