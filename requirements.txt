@@ -12,4 +12,3 @@ requests
 razorpay
 pyjwt
 python-dotenv
-expo-server-sdk
