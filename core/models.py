@@ -55,7 +55,7 @@ class Shop(models.Model):
         choices=[('free', 'Free'), ('pro', 'Pro')],
         default='free'
     )
-    is_premium = models.BooleanField( default=False )
+
     plan_expiry = models.DateTimeField(null=True, blank=True)
 
     def activate_pro(self):
