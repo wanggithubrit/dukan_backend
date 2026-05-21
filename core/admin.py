@@ -112,10 +112,11 @@ class ShopAdmin(admin.ModelAdmin):
         'plan_expiry',
         'days_left',
         'plan_status',
-        'is_open'
+        'is_open',
+        'is_premium',
     )
 
-    list_filter = ('plan', 'is_open')
+    list_filter = ('plan', 'is_open','is_premium',)
     search_fields = ('name',)
 
     # ✅ STATUS COLUMN
