@@ -38,6 +38,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from core.models import Shop
 
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.decorators import parser_classes
+
+
+
 
 
 
@@ -657,8 +662,12 @@ def create_offer(request):
 
     return Response({'message': 'Offer created'})
 
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+
+@parser_classes([MultiPartParser, FormParser])
 def upload_banner(request):
     try:
         user = request.user
@@ -769,6 +778,7 @@ def delete_all_notifications(request, user_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
 def create_item(request):
     user = request.user
     shop = get_object_or_404(Shop, owner=user)
@@ -996,6 +1006,7 @@ def verify_quantity_payment(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
 def upload_shop_media(request):
     user = request.user
     shop = get_object_or_404(Shop, owner=user)
