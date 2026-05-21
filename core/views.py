@@ -1004,31 +1004,54 @@ def verify_quantity_payment(request):
             "status": "failed"
         }, status=400)
 
+
+import traceback
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
 def upload_shop_media(request):
-    user = request.user
-    shop = get_object_or_404(Shop, owner=user)
+    try:
+        user = request.user
+        shop = get_object_or_404(Shop, owner=user)
 
-    image = request.FILES.get('image')
+        print("FILES:", request.FILES)
 
-    if not image:
-        return Response({'error': 'Image required'}, status=400)
+        image = request.FILES.get('image')
 
-    count = ShopMedia.objects.filter(shop=shop).count()
+        if not image:
+            return Response({'error': 'Image required'}, status=400)
 
-    # 🆓 FREE → only 1
-    if not shop.is_pro_active() and count >= 1:
-        return Response({'error': 'Free plan allows only 1 image'}, status=403)
+        count = ShopMedia.objects.filter(shop=shop).count()
 
-    # 💎 PRO → max 5
-    if shop.is_pro_active() and count >= 5:
-        return Response({'error': 'Max 5 images allowed'}, status=403)
+        # 🆓 FREE → only 1
+        if not shop.is_pro_active() and count >= 1:
+            return Response({'error': 'Free plan allows only 1 image'}, status=403)
 
-    ShopMedia.objects.create(shop=shop, image=image)
+        # 💎 PRO → max 5
+        if shop.is_pro_active() and count >= 5:
+            return Response({'error': 'Max 5 images allowed'}, status=403)
 
-    return Response({'message': 'Uploaded'})
+        media = ShopMedia.objects.create(
+            shop=shop,
+            image=image
+        )
+
+        print("UPLOAD SUCCESS:", media.image.url)
+
+        return Response({
+            'message': 'Uploaded',
+            'image': media.image.url
+        })
+
+    except Exception as e:
+        print("UPLOAD ERROR:")
+        print(traceback.format_exc())
+
+        return Response({
+            'error': str(e)
+        }, status=500)
+
 
 
 @api_view(['DELETE'])
