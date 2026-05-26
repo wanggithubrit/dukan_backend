@@ -29,6 +29,7 @@ ALLOWED_HOSTS = [
     ".onrender.com",
     "localhost",
     "127.0.0.1",
+    "http://10.14.104.206:3000"
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://api.mydukan.online",
