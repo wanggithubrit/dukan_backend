@@ -29,6 +29,7 @@ ALLOWED_HOSTS = [
     ".onrender.com",
     "localhost",
     "127.0.0.1",
+    "10.14.104.206",
 
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -36,9 +37,10 @@ CSRF_TRUSTED_ORIGINS = [
     "https://api.mydukan.online",
     "https://*.onrender.com",
 ]
-CORS_ALLOWED_ORIGINS = [
+CSRF_TRUSTED_ORIGINS = [
+    "https://api.mydukan.online",
+    "https://dukan-backend-0cc9.onrender.com",
     "http://10.14.104.206:3000",
-    "https://api.mydukan.online", # Keep your existing domains
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = True  # easier for mobile apps
