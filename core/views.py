@@ -60,18 +60,60 @@ import math
 # ==============================
 # 🔧 HELPERS
 # ==============================
-def calculate_distance(lat1, lon1, lat2, lon2):
+def calculate_haversine(lat1, lon1, lat2, lon2):
     R = 6371
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-
     a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) \
         * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
-
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    straight_dist = R * c
-    # Scale straight-line distance by 1.7 to match the winding mountain driving roads (e.g. Chumukedima to Kohima)
-    return round(straight_dist * 1.7, 2)
+    return R * c
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    # Major Nagaland town center coordinates
+    TOWNS = {
+        'Chumukedima': (25.7937, 93.7297),
+        'Kohima': (25.6751, 94.1086),
+        'Dimapur': (25.9000, 93.7300)
+    }
+
+    # Real driving route highway distances between major towns (as in Google Maps)
+    ROAD_DISTANCES = {
+        ('Chumukedima', 'Kohima'): 59.0,
+        ('Kohima', 'Chumukedima'): 59.0,
+        ('Dimapur', 'Kohima'): 74.0,
+        ('Kohima', 'Dimapur'): 74.0,
+        ('Dimapur', 'Chumukedima'): 14.0,
+        ('Chumukedima', 'Dimapur'): 14.0,
+    }
+
+    # Find the closest major town for both points
+    closest1, dist_to_c1 = None, float('inf')
+    closest2, dist_to_c2 = None, float('inf')
+
+    for town, (t_lat, t_lon) in TOWNS.items():
+        d1 = calculate_haversine(lat1, lon1, t_lat, t_lon)
+        if d1 < dist_to_c1:
+            closest1, dist_to_c1 = town, d1
+
+        d2 = calculate_haversine(lat2, lon2, t_lat, t_lon)
+        if d2 < dist_to_c2:
+            closest2, dist_to_c2 = town, d2
+
+    # If both points are within reasonable town clusters (15 km), route via town highway network
+    if dist_to_c1 < 15.0 and dist_to_c2 < 15.0:
+        if closest1 == closest2:
+            # Same town: scale straight-line distance by a local city winding factor of 1.25x
+            straight = calculate_haversine(lat1, lon1, lat2, lon2)
+            return round(straight * 1.25, 2)
+        else:
+            # Different towns: base town-to-town road distance + local offsets from centers
+            base_road = ROAD_DISTANCES.get((closest1, closest2), 50.0)
+            return round(base_road + (dist_to_c1 * 1.2) + (dist_to_c2 * 1.2), 2)
+
+    # General fallback: scale by winding mountain multiplier
+    straight = calculate_haversine(lat1, lon1, lat2, lon2)
+    return round(straight * 1.5, 2)
 
  
 # ==============================
@@ -1102,24 +1144,7 @@ from math import radians, cos, sin, asin, sqrt
 from django.utils import timezone
 
 
-def calculate_distance(lat1, lon1, lat2, lon2):
-
-    lon1 = radians(lon1)
-    lon2 = radians(lon2)
-    lat1 = radians(lat1)
-    lat2 = radians(lat2)
-
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-
-    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-
-    c = 2 * asin(sqrt(a))
-
-    r = 6371  # Earth radius in KM
-
-    # Scale straight-line distance by 1.7 to match the winding mountain driving roads (e.g. Chumukedima to Kohima)
-    return round(c * r * 1.7, 2)
+# Using the main calculate_distance function defined above
 
 
 @api_view(['GET'])
