@@ -70,6 +70,22 @@ def calculate_haversine(lat1, lon1, lat2, lon2):
     return R * c
 
 def calculate_distance(lat1, lon1, lat2, lon2):
+    import urllib.request
+    import json
+
+    # Try to query public OpenStreetMap OSRM API for exact road routing distance
+    try:
+        url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Dukan App)'})
+        with urllib.request.urlopen(req, timeout=2.0) as response:
+            data = json.loads(response.read().decode())
+            if data.get('routes'):
+                distance_meters = data['routes'][0]['distance']
+                return round(distance_meters / 1000.0, 2)
+    except Exception as e:
+        # Fallback to local approximation if OSRM is offline or times out
+        pass
+
     # Major Nagaland town center coordinates
     TOWNS = {
         'Chumukedima': (25.7937, 93.7297),
