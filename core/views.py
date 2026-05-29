@@ -69,7 +69,9 @@ def calculate_distance(lat1, lon1, lat2, lon2):
         * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
 
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    return round(R * c, 2)
+    straight_dist = R * c
+    # Scale straight-line distance by 1.5 to match the winding mountain driving roads (e.g. Chumukedima to Kohima)
+    return round(straight_dist * 1.5, 2)
 
  
 # ==============================
@@ -1116,7 +1118,8 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
     r = 6371  # Earth radius in KM
 
-    return c * r
+    # Scale straight-line distance by 1.5 to match the winding mountain driving roads (e.g. Chumukedima to Kohima)
+    return round(c * r * 1.5, 2)
 
 
 @api_view(['GET'])
