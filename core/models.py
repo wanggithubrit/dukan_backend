@@ -36,6 +36,7 @@ class Shop(models.Model):
     phone = models.CharField(max_length=15)
     whatsapp_number = models.CharField(max_length=15, blank=True, null=True)
     address = models.TextField(blank=True)
+    description = models.TextField(blank=True, null=True)
 
     # ✅ Cloudinary
     image = CloudinaryField("image", null=True, blank=True)
@@ -197,11 +198,8 @@ class Profile(models.Model):
 
 
 # ==============================
-# 🔐 OTP
+# ⚙️ SETTINGS
 # ==============================
-
-from django.utils import timezone
-from datetime import timedelta
 
 class OTP(models.Model):
     email = models.EmailField()
@@ -240,8 +238,8 @@ class Item(models.Model):
 
     track_quantity = models.BooleanField(default=False)
 
-class FeaturedBanner(models.Model):
 
+class FeaturedBanner(models.Model):
     title = models.CharField(max_length=200, blank=True)
     subtitle = models.CharField(max_length=300, blank=True)
 
@@ -270,7 +268,7 @@ class FeaturedBanner(models.Model):
         default=0
     )
 
-# OPTIONAL SPONSORED TAG
+    # OPTIONAL SPONSORED TAG
     is_sponsored = models.BooleanField(
         default=False
     )
@@ -336,7 +334,7 @@ class Referral(models.Model):
 
 
 # ==============================
-# ⚙️ SETTINGS
+# ⚙️ AppSettings
 # ==============================
 
 class AppSettings(models.Model):

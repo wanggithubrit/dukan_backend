@@ -204,6 +204,7 @@ def update_shop(request):
     )
 
     shop.address = request.data.get('address', shop.address)
+    shop.description = request.data.get('description', shop.description)
 
     # LOCATION
     shop.latitude = request.data.get('latitude', shop.latitude)
