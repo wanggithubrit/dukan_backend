@@ -73,64 +73,41 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     import urllib.request
     import json
 
-    # Try to query public OpenStreetMap OSRM API for exact road routing distance
+    straight = calculate_haversine(lat1, lon1, lat2, lon2)
+
+    # Dynamic road-winding factor curve fitting based on straight-line distance (in KM)
+    if straight < 5.0:
+        factor = 1.2
+    elif straight < 15.0:
+        factor = 1.2 + 0.02 * (straight - 5.0)
+    else:
+        factor = 1.4 + 0.005 * (straight - 15.0)
+        if factor > 1.65:
+            factor = 1.65
+
+    expected_road_dist = straight * factor
+
+    # Try querying public OpenStreetMap OSRM API for exact road routing distance
     try:
         url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Dukan App)'})
         with urllib.request.urlopen(req, timeout=2.0) as response:
             data = json.loads(response.read().decode())
             if data.get('routes'):
-                distance_meters = data['routes'][0]['distance']
-                # Calibrate with a 0.958 factor to match Google Maps route driving distance exactly (60.9 km)
-                return round((distance_meters / 1000.0) * 0.958, 1)
+                osrm_meters = data['routes'][0]['distance']
+                osrm_km = osrm_meters / 1000.0
+                
+                # Check for OSRM snapping detour anomalies (Rural snapping errors)
+                if osrm_km > expected_road_dist * 1.12:
+                    return round(expected_road_dist, 1)
+                
+                # Calibrate live OSRM driving distance to match Google Maps route
+                return round(osrm_km * 0.958, 1)
     except Exception as e:
-        # Fallback to local approximation if OSRM is offline or times out
         pass
 
-    # Major Nagaland town center coordinates
-    TOWNS = {
-        'Chumukedima': (25.7937, 93.7297),
-        'Kohima': (25.6751, 94.1086),
-        'Dimapur': (25.9000, 93.7300)
-    }
-
-    # Real driving route highway distances between major towns (as in Google Maps)
-    ROAD_DISTANCES = {
-        ('Chumukedima', 'Kohima'): 60.5,
-        ('Kohima', 'Chumukedima'): 60.5,
-        ('Dimapur', 'Kohima'): 74.0,
-        ('Kohima', 'Dimapur'): 74.0,
-        ('Dimapur', 'Chumukedima'): 14.0,
-        ('Chumukedima', 'Dimapur'): 14.0,
-    }
-
-    # Find the closest major town for both points
-    closest1, dist_to_c1 = None, float('inf')
-    closest2, dist_to_c2 = None, float('inf')
-
-    for town, (t_lat, t_lon) in TOWNS.items():
-        d1 = calculate_haversine(lat1, lon1, t_lat, t_lon)
-        if d1 < dist_to_c1:
-            closest1, dist_to_c1 = town, d1
-
-        d2 = calculate_haversine(lat2, lon2, t_lat, t_lon)
-        if d2 < dist_to_c2:
-            closest2, dist_to_c2 = town, d2
-
-    # If both points are within reasonable town clusters (15 km), route via town highway network
-    if dist_to_c1 < 15.0 and dist_to_c2 < 15.0:
-        if closest1 == closest2:
-            # Same town: scale straight-line distance by a local city winding factor of 1.25x
-            straight = calculate_haversine(lat1, lon1, lat2, lon2)
-            return round(straight * 1.25, 2)
-        else:
-            # Different towns: base town-to-town road distance + local offsets from centers
-            base_road = ROAD_DISTANCES.get((closest1, closest2), 50.0)
-            return round(base_road + (dist_to_c1 * 1.2) + (dist_to_c2 * 1.2), 2)
-
-    # General fallback: scale by winding mountain multiplier
-    straight = calculate_haversine(lat1, lon1, lat2, lon2)
-    return round(straight * 1.5, 2)
+    # Fallback to dynamic Expected Winding Road Curve
+    return round(expected_road_dist, 1)
 
  
 # ==============================
