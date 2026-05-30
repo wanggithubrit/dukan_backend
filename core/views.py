@@ -718,11 +718,13 @@ def login(request):
 @api_view(['GET'])
 def get_user(request, id):
     user = get_object_or_404(User, id=id)
+    profile, _ = Profile.objects.get_or_create(user=user)
 
     return Response({
         "id": user.id,
         "username": user.username,
         "email": user.email,
+        "reward_credits": profile.reward_credits,
     })
 
 from .models import ShopView
@@ -1749,3 +1751,128 @@ def verify_payment(request):
     except Exception as e:
         print(e)
         return Response({"status": "failed"}, status=400)
+
+
+# ==============================
+# 🏆 LOCAL HERO & ONDC API
+# ==============================
+
+from .models import StoreReport
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def submit_store_report(request):
+    shop_id = request.data.get('shop_id')
+    report_type = request.data.get('report_type', 'status')
+    details = request.data.get('details', '')
+
+    shop = get_object_or_404(Shop, id=shop_id)
+    user = request.user
+
+    # Create the report
+    report = StoreReport.objects.create(
+        user=user,
+        shop=shop,
+        report_type=report_type,
+        details=details,
+        status='approved'
+    )
+
+    # Award points to User Profile
+    profile, _ = Profile.objects.get_or_create(user=user)
+    profile.reward_credits += 10
+    profile.save()
+
+    return Response({
+        "success": True,
+        "message": "Report submitted successfully! You earned 10 reward credits.",
+        "reward_credits": profile.reward_credits
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_leaderboard(request):
+    # Fetch top 10 profiles sorted by reward_credits
+    top_profiles = Profile.objects.order_by('-reward_credits')[:10]
+    leaderboard = []
+    for idx, p in enumerate(top_profiles):
+        leaderboard.append({
+            "rank": idx + 1,
+            "username": p.user.username,
+            "credits": p.reward_credits,
+            "avatar": p.avatar
+        })
+    return Response(leaderboard)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def ondc_search(request):
+    """
+    ONDC /beckn search protocol compliant JSON mock API endpoint.
+    Retrieves local stores and transforms them into beckn catalog format.
+    """
+    domain = request.data.get('context', {}).get('domain', 'ONDC:RET10') if isinstance(request.data, dict) else 'ONDC:RET10'
+    
+    # Query all active shops
+    shops = Shop.objects.all()
+    catalog_providers = []
+
+    for s in shops:
+        catalog_providers.append({
+            "id": f"provider_shop_{s.id}",
+            "descriptor": {
+                "name": s.name,
+                "short_desc": s.description or "Local retail shop indexed on MyDukan ONDC gateway.",
+                "images": [s.image.url] if s.image else []
+            },
+            "categories": [
+                {
+                    "id": s.category,
+                    "descriptor": {
+                        "name": s.category
+                    }
+                }
+            ],
+            "items": [
+                {
+                    "id": f"item_{item.id}",
+                    "descriptor": {
+                        "name": item.name,
+                        "short_desc": item.description or ""
+                    },
+                    "price": {
+                        "currency": "INR",
+                        "value": str(item.price) if item.price is not None else "0.00"
+                    },
+                    "category_id": s.category
+                } for item in Item.objects.filter(shop=s)
+            ]
+        })
+
+    beckn_response = {
+        "context": {
+            "domain": domain,
+            "country": "IND",
+            "city": "std:080",
+            "action": "on_search",
+            "core_version": "1.2.0",
+            "bap_id": "ondc.mock.buyer.app",
+            "bap_uri": "https://buyer.app/ondc",
+            "bpp_id": "mydukan.ondc.gateway",
+            "bpp_uri": "https://dukan-backend-0cc9.onrender.com/api/ondc",
+            "transaction_id": "txn_8847291a-f38b-4a55-89f5-19a6d95f87b8",
+            "message_id": "msg_90a42f61-2679-450f-a31d-b8d91a9df201",
+            "timestamp": timezone.now().isoformat()
+        },
+        "message": {
+            "catalog": {
+                "bpp/descriptor": {
+                    "name": "MyDukan Network Gateway"
+                },
+                "bpp/providers": catalog_providers
+            }
+        }
+    }
+    return Response(beckn_response)

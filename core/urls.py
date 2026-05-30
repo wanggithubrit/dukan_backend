@@ -38,6 +38,9 @@ from .views import (
     update_item,
     create_quantity_order,
     verify_quantity_payment,
+    submit_store_report,
+    get_leaderboard,
+    ondc_search,
 )
 
 from django.conf import settings
@@ -108,6 +111,9 @@ path(
     'payment/quantity/verify/',
     verify_quantity_payment
 ),
+    path('reports/submit/', submit_store_report),
+    path('reports/leaderboard/', get_leaderboard),
+    path('ondc/search/', ondc_search),
     ]
 
 

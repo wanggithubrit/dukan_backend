@@ -342,3 +342,28 @@ class AppSettings(models.Model):
 
     def __str__(self):
         return "App Settings"
+
+
+# ==============================
+# 🏆 STORE REPORT & COMMUNITY
+# ==============================
+
+class StoreReport(models.Model):
+    REPORT_TYPE_CHOICES = [
+        ('status', 'Status Report'),
+        ('new_shop', 'New Shop Info'),
+    ]
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
+    report_type = models.CharField(max_length=20, choices=REPORT_TYPE_CHOICES)
+    details = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='approved') # auto-approve for simulated rewards
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.shop.name} ({self.report_type})"
