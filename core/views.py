@@ -100,23 +100,39 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     expected_road_dist = straight * factor
     result_dist = None
 
-    # 1. Try Google Maps Distance Matrix API first if GOOGLE_MAPS_API_KEY is configured
-    google_key = os.getenv("GOOGLE_MAPS_API_KEY")
-    if google_key:
+    # 1. Try OpenRouteService first if OPENROUTE_API_KEY is configured
+    ors_key = os.getenv("OPENROUTE_API_KEY")
+    if ors_key:
         try:
-            url = f"https://maps.googleapis.com/maps/api/distancematrix/json?origins={lat1},{lon1}&destinations={lat2},{lon2}&key={google_key}"
+            # Note: start and end are formatted as start=lon1,lat1 and end=lon2,lat2 for OpenRouteService
+            url = f"https://api.openrouteservice.org/v2/directions/driving-car?api_key={ors_key}&start={lon1},{lat1}&end={lon2},{lat2}"
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Dukan App)'})
             with urllib.request.urlopen(req, timeout=2.0) as response:
                 data = json.loads(response.read().decode())
-                if data.get('status') == 'OK':
-                    element = data['rows'][0]['elements'][0]
-                    if element.get('status') == 'OK':
-                        distance_meters = element['distance']['value']
-                        result_dist = round(distance_meters / 1000.0, 1)
+                if 'features' in data:
+                    dist_meters = data['features'][0]['properties']['summary']['distance']
+                    result_dist = round(dist_meters / 1000.0, 1)
         except Exception as e:
             pass
 
-    # 2. Try querying public OpenStreetMap OSRM API for exact road routing distance
+    # 2. Try Google Maps Distance Matrix API second if GOOGLE_MAPS_API_KEY is configured
+    if result_dist is None:
+        google_key = os.getenv("GOOGLE_MAPS_API_KEY")
+        if google_key:
+            try:
+                url = f"https://maps.googleapis.com/maps/api/distancematrix/json?origins={lat1},{lon1}&destinations={lat2},{lon2}&key={google_key}"
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Dukan App)'})
+                with urllib.request.urlopen(req, timeout=2.0) as response:
+                    data = json.loads(response.read().decode())
+                    if data.get('status') == 'OK':
+                        element = data['rows'][0]['elements'][0]
+                        if element.get('status') == 'OK':
+                            distance_meters = element['distance']['value']
+                            result_dist = round(distance_meters / 1000.0, 1)
+            except Exception as e:
+                pass
+
+    # 3. Try querying public OpenStreetMap OSRM API for exact road routing distance
     if result_dist is None:
         try:
             url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
