@@ -91,9 +91,10 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     elif straight < 15.0:
         factor = 1.2 + 0.02 * (straight - 5.0)
     else:
-        factor = 1.4 + 0.005 * (straight - 15.0)
-        if factor > 1.65:
-            factor = 1.65
+        # Mountainous/hilly terrain (e.g., NH-29) has winding factors up to 1.72
+        factor = 1.4 + 0.015 * (straight - 15.0)
+        if factor > 1.72:
+            factor = 1.72
 
     expected_road_dist = straight * factor
     result_dist = None
@@ -109,11 +110,11 @@ def calculate_distance(lat1, lon1, lat2, lon2):
                 osrm_km = osrm_meters / 1000.0
                 
                 # Check for OSRM snapping detour anomalies (Rural snapping errors)
-                if osrm_km > expected_road_dist * 1.12:
+                if osrm_km > expected_road_dist * 1.15:
                     result_dist = round(expected_road_dist, 1)
                 else:
-                    # Calibrate live OSRM driving distance to match Google Maps route
-                    result_dist = round(osrm_km * 0.958, 1)
+                    # Calibrate live OSRM driving distance to match Google Maps route (Chumukedima -> Kohima is 60.9km)
+                    result_dist = round(osrm_km * 1.0348, 1)
     except Exception as e:
         pass
 
