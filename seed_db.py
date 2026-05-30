@@ -10,7 +10,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dukan_backend.settings')
 django.setup()
 
 from django.contrib.auth.models import User
-from core.models import Shop
+from core.models import Shop, FeaturedBanner
 
 def seed_database():
     print("⏳ Fetching shops data from production Render backend...")
@@ -58,7 +58,30 @@ def seed_database():
         except Exception as err:
             print(f"  ❌ Error seeding {s.get('name')}: {err}")
 
-    print(f"\n✨ Successfully seeded {created_count} shops into db.sqlite3!")
+    # Seed featured banners
+    FeaturedBanner.objects.all().delete()
+    try:
+        FeaturedBanner.objects.create(
+            title="DUKAN",
+            subtitle="MAKE LOCAL SHOPPING EASY",
+            banner_type="image",
+            background_color="#1B6B50",
+            small_text="save your time, energy and money.",
+            priority=0,
+            is_sponsored=False,
+            link="https://www.instagram.com/dukan.service/",
+            latitude=None,
+            longitude=None,
+            visibility_radius=25,
+            global_banner=True,
+            expires_at=None,
+            is_active=True
+        )
+        print("  ✅ Seeded FeaturedBanner: DUKAN")
+    except Exception as err:
+        print(f"  ❌ Error seeding FeaturedBanner: {err}")
+
+    print(f"\n✨ Successfully seeded {created_count} shops and banners into db.sqlite3!")
 
 if __name__ == '__main__':
     seed_database()

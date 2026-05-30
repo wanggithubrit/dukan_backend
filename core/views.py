@@ -74,6 +74,7 @@ DISTANCE_CACHE = {}
 def calculate_distance(lat1, lon1, lat2, lon2):
     import urllib.request
     import json
+    import os
 
     # Try cache first (rounded coordinates to 4 decimals gives ~11m precision)
     try:
@@ -99,24 +100,41 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     expected_road_dist = straight * factor
     result_dist = None
 
-    # Try querying public OpenStreetMap OSRM API for exact road routing distance
-    try:
-        url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Dukan App)'})
-        with urllib.request.urlopen(req, timeout=2.0) as response:
-            data = json.loads(response.read().decode())
-            if data.get('routes'):
-                osrm_meters = data['routes'][0]['distance']
-                osrm_km = osrm_meters / 1000.0
-                
-                # Check for OSRM snapping detour anomalies (Rural snapping errors)
-                if osrm_km > expected_road_dist * 1.15:
-                    result_dist = round(expected_road_dist, 1)
-                else:
-                    # Calibrate live OSRM driving distance to match Google Maps route (Chumukedima -> Kohima is 60.9km)
-                    result_dist = round(osrm_km * 1.0348, 1)
-    except Exception as e:
-        pass
+    # 1. Try Google Maps Distance Matrix API first if GOOGLE_MAPS_API_KEY is configured
+    google_key = os.getenv("GOOGLE_MAPS_API_KEY")
+    if google_key:
+        try:
+            url = f"https://maps.googleapis.com/maps/api/distancematrix/json?origins={lat1},{lon1}&destinations={lat2},{lon2}&key={google_key}"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Dukan App)'})
+            with urllib.request.urlopen(req, timeout=2.0) as response:
+                data = json.loads(response.read().decode())
+                if data.get('status') == 'OK':
+                    element = data['rows'][0]['elements'][0]
+                    if element.get('status') == 'OK':
+                        distance_meters = element['distance']['value']
+                        result_dist = round(distance_meters / 1000.0, 1)
+        except Exception as e:
+            pass
+
+    # 2. Try querying public OpenStreetMap OSRM API for exact road routing distance
+    if result_dist is None:
+        try:
+            url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Dukan App)'})
+            with urllib.request.urlopen(req, timeout=2.0) as response:
+                data = json.loads(response.read().decode())
+                if data.get('routes'):
+                    osrm_meters = data['routes'][0]['distance']
+                    osrm_km = osrm_meters / 1000.0
+                    
+                    # Check for OSRM snapping detour anomalies (Rural snapping errors)
+                    if osrm_km > expected_road_dist * 1.15:
+                        result_dist = round(expected_road_dist, 1)
+                    else:
+                        # Calibrate live OSRM driving distance to match Google Maps route (Chumukedima -> Kohima is 60.9km)
+                        result_dist = round(osrm_km * 1.0348, 1)
+        except Exception as e:
+            pass
 
     if result_dist is None:
         # Fallback to dynamic Expected Winding Road Curve
