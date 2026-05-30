@@ -131,8 +131,8 @@ def calculate_distance(lat1, lon1, lat2, lon2):
                     if osrm_km > expected_road_dist * 1.15:
                         result_dist = round(expected_road_dist, 1)
                     else:
-                        # Calibrate live OSRM driving distance to match Google Maps route (Chumukedima -> Kohima is 60.9km)
-                        result_dist = round(osrm_km * 1.0348, 1)
+                        # Use raw OSRM road routing distance directly for maximum accuracy across all routes
+                        result_dist = round(osrm_km, 1)
         except Exception as e:
             pass
 
