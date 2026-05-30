@@ -76,9 +76,15 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     import json
     import os
 
-    # Try cache first (rounded coordinates to 4 decimals gives ~11m precision)
+    # Round coordinates to 5 decimal places to prevent routing snapping variations (~1m precision)
+    lat1 = round(lat1, 5)
+    lon1 = round(lon1, 5)
+    lat2 = round(lat2, 5)
+    lon2 = round(lon2, 5)
+
+    # Try cache first
     try:
-        cache_key = (round(lat1, 4), round(lon1, 4), round(lat2, 4), round(lon2, 4))
+        cache_key = (lat1, lon1, lat2, lon2)
         if cache_key in DISTANCE_CACHE:
             return DISTANCE_CACHE[cache_key]
     except Exception:
