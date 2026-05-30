@@ -69,9 +69,19 @@ def calculate_haversine(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return R * c
 
+DISTANCE_CACHE = {}
+
 def calculate_distance(lat1, lon1, lat2, lon2):
     import urllib.request
     import json
+
+    # Try cache first (rounded coordinates to 4 decimals gives ~11m precision)
+    try:
+        cache_key = (round(lat1, 4), round(lon1, 4), round(lat2, 4), round(lon2, 4))
+        if cache_key in DISTANCE_CACHE:
+            return DISTANCE_CACHE[cache_key]
+    except Exception:
+        cache_key = None
 
     straight = calculate_haversine(lat1, lon1, lat2, lon2)
 
@@ -86,6 +96,7 @@ def calculate_distance(lat1, lon1, lat2, lon2):
             factor = 1.65
 
     expected_road_dist = straight * factor
+    result_dist = None
 
     # Try querying public OpenStreetMap OSRM API for exact road routing distance
     try:
@@ -99,15 +110,21 @@ def calculate_distance(lat1, lon1, lat2, lon2):
                 
                 # Check for OSRM snapping detour anomalies (Rural snapping errors)
                 if osrm_km > expected_road_dist * 1.12:
-                    return round(expected_road_dist, 1)
-                
-                # Calibrate live OSRM driving distance to match Google Maps route
-                return round(osrm_km * 0.958, 1)
+                    result_dist = round(expected_road_dist, 1)
+                else:
+                    # Calibrate live OSRM driving distance to match Google Maps route
+                    result_dist = round(osrm_km * 0.958, 1)
     except Exception as e:
         pass
 
-    # Fallback to dynamic Expected Winding Road Curve
-    return round(expected_road_dist, 1)
+    if result_dist is None:
+        # Fallback to dynamic Expected Winding Road Curve
+        result_dist = round(expected_road_dist, 1)
+
+    if cache_key is not None:
+        DISTANCE_CACHE[cache_key] = result_dist
+
+    return result_dist
 
  
 # ==============================
@@ -121,7 +138,22 @@ def get_nearby_shops(request):
     except:
         return Response({"error": "Provide lat & lon"}, status=400)
 
-    shops = Shop.objects.all()
+    shops = list(Shop.objects.all())
+    
+    from concurrent.futures import ThreadPoolExecutor
+
+    def fetch_dist(s):
+        if not s.latitude or not s.longitude:
+            return s.id, None
+        try:
+            d = calculate_distance(user_lat, user_lon, s.latitude, s.longitude)
+            return s.id, d
+        except Exception:
+            return s.id, None
+
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        dist_map = dict(executor.map(fetch_dist, shops))
+
     result = []
 
     for shop in shops:
@@ -129,12 +161,9 @@ def get_nearby_shops(request):
         if not shop.latitude or not shop.longitude:
             continue
 
-        distance = calculate_distance(
-            user_lat,
-            user_lon,
-            shop.latitude,
-            shop.longitude
-        )
+        distance = dist_map.get(shop.id)
+        if distance is None:
+            continue
 
         # ✅ SHOP DATA
         data = ShopSerializer(
@@ -174,6 +203,7 @@ def get_nearby_shops(request):
     return Response(
         sorted(result, key=lambda x: x['distance'])
     )
+
 
 # ==============================
 # 🏪 SHOP
@@ -295,7 +325,28 @@ def get_favorites(request):
         user_lat = None
         user_lon = None
 
-    favorites = Favorite.objects.filter(user=user).select_related('shop')
+    favorites = list(Favorite.objects.filter(user=user).select_related('shop'))
+    
+    from concurrent.futures import ThreadPoolExecutor
+
+    def fetch_fav_dist(fav):
+        shop = fav.shop
+        if (
+            user_lat is not None and
+            user_lon is not None and
+            shop.latitude is not None and
+            shop.longitude is not None
+        ):
+            try:
+                d = calculate_distance(user_lat, user_lon, shop.latitude, shop.longitude)
+                return fav.id, d
+            except Exception:
+                return fav.id, None
+        return fav.id, None
+
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        dist_map = dict(executor.map(fetch_fav_dist, favorites))
+
     result = []
 
     for fav in favorites:
@@ -321,21 +372,9 @@ def get_favorites(request):
             data["cover_image"] = data.get("image")
 
         # ✅ DISTANCE
-        if (
-            user_lat is not None and
-            user_lon is not None and
-            shop.latitude is not None and
-            shop.longitude is not None
-        ):
-            distance = calculate_distance(
-                user_lat,
-                user_lon,
-                shop.latitude,
-                shop.longitude
-            )
-
+        distance = dist_map.get(fav.id)
+        if distance is not None:
             data["distance"] = round(distance, 1)
-
         else:
             data["distance"] = None
 
@@ -348,6 +387,7 @@ def get_favorites(request):
     )
 
     return Response(result)
+
 
 
 
@@ -1151,9 +1191,34 @@ def get_featured_banners(request):
 
     now = timezone.now()
 
-    banners = FeaturedBanner.objects.filter(
+    banners = list(FeaturedBanner.objects.filter(
         is_active=True
-    ).order_by('-id')
+    ).order_by('-id'))
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    def fetch_banner_dist(banner):
+        if banner.expires_at and banner.expires_at < now:
+            return banner.id, None
+        if banner.global_banner:
+            return banner.id, None
+        if not lat or not lon:
+            return banner.id, None
+        if banner.latitude is None or banner.longitude is None:
+            return banner.id, None
+        try:
+            d = calculate_distance(
+                float(lat),
+                float(lon),
+                banner.latitude,
+                banner.longitude
+            )
+            return banner.id, d
+        except Exception:
+            return banner.id, None
+
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        dist_map = dict(executor.map(fetch_banner_dist, banners))
 
     visible_banners = []
 
@@ -1176,20 +1241,10 @@ def get_featured_banners(request):
         if banner.latitude is None or banner.longitude is None:
             continue
 
-        try:
-
-            distance = calculate_distance(
-                float(lat),
-                float(lon),
-                banner.latitude,
-                banner.longitude
-            )
-
+        distance = dist_map.get(banner.id)
+        if distance is not None:
             if distance <= banner.visibility_radius:
                 visible_banners.append(banner)
-
-        except:
-            continue
 
     # SORT:
     # 1. sponsored first
@@ -1217,6 +1272,7 @@ def get_featured_banners(request):
             context={'request': request}
         ).data
     )
+
 
 
 @api_view(['POST'])
