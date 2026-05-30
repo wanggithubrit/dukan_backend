@@ -50,6 +50,7 @@ class Shop(models.Model):
     closing_time = models.TimeField(null=True, blank=True)
 
     auto_notify = models.BooleanField(default=True)
+    auto_reminder_enabled = models.BooleanField(default=True)
 
     plan = models.CharField(
         max_length=10,
@@ -367,3 +368,36 @@ class StoreReport(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.shop.name} ({self.report_type})"
+
+
+# ==============================
+# 💰 CREDIT SYSTEM
+# ==============================
+
+class MerchantCredits(models.Model):
+    merchant = models.OneToOneField(User, on_delete=models.CASCADE, related_name='credits')
+    available_credits = models.FloatField(default=0.0)
+    total_earned = models.FloatField(default=0.0)
+    total_spent = models.FloatField(default=0.0)
+    bought_limit_slots = models.IntegerField(default=0)  # tracks purchased extra product slots (+1 per 10 credits)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.merchant.username} - {self.available_credits} Credits"
+
+
+class CreditTransaction(models.Model):
+    TRANSACTION_TYPES = [
+        ('reward', 'Reward'),
+        ('ad_reward', 'Ad Reward'),
+        ('spend', 'Spend'),
+        ('bonus', 'Bonus'),
+    ]
+    merchant = models.ForeignKey(User, on_delete=models.CASCADE, related_name='credit_transactions')
+    amount = models.FloatField()
+    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
+    description = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.merchant.username} - {self.transaction_type} ({self.amount})"

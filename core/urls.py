@@ -41,6 +41,11 @@ from .views import (
     submit_store_report,
     get_leaderboard,
     ondc_search,
+    credit_status,
+    buy_limit_slot,
+    ad_complete,
+    report_action,
+    admin_metrics,
 )
 
 from django.conf import settings
@@ -114,6 +119,11 @@ path(
     path('reports/submit/', submit_store_report),
     path('reports/leaderboard/', get_leaderboard),
     path('ondc/search/', ondc_search),
+    path('credits/status/', credit_status),
+    path('credits/buy-limit/', buy_limit_slot),
+    path('credits/ad-complete/', ad_complete),
+    path('credits/report-action/', report_action),
+    path('admin/metrics/', admin_metrics),
     ]
 
 

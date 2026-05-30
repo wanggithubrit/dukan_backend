@@ -319,7 +319,43 @@ def update_shop(request):
     shop.latitude = request.data.get('latitude', shop.latitude)
     shop.longitude = request.data.get('longitude', shop.longitude)
 
+    # NEW TIMES & REMINDERS
+    opening = request.data.get('opening_time')
+    closing = request.data.get('closing_time')
+    if opening:
+        shop.opening_time = opening
+    if closing:
+        shop.closing_time = closing
+
+    auto_rem = request.data.get('auto_reminder_enabled')
+    if auto_rem is not None:
+        shop.auto_reminder_enabled = str(auto_rem).lower() == 'true'
+        shop.auto_notify = str(auto_rem).lower() == 'true'
+
+    # IMAGE / COVER UPLOAD
+    if request.FILES.get('image'):
+        shop.image = request.FILES.get('image')
+
     shop.save()
+
+    # --- CREDIT REWARDS ---
+    try:
+        # 1. Complete Shop Profile (+5)
+        if shop.name and shop.phone and shop.whatsapp_number and shop.address and shop.description:
+            if not CreditTransaction.objects.filter(merchant=user, description='Complete Shop Profile').exists():
+                award_merchant_credits(user, 5.0, 'reward', 'Complete Shop Profile')
+
+        # 2. Add Opening/Closing Time Set (+2)
+        if shop.opening_time and shop.closing_time:
+            if not CreditTransaction.objects.filter(merchant=user, description='Add Opening/Closing Time').exists():
+                award_merchant_credits(user, 2.0, 'reward', 'Add Opening/Closing Time')
+
+        # 3. Cover Image Uploaded (+2)
+        if shop.image:
+            if not CreditTransaction.objects.filter(merchant=user, description='Upload Shop Banner').exists():
+                award_merchant_credits(user, 2.0, 'reward', 'Upload Shop Banner')
+    except Exception as e:
+        print("Credit reward error in update_shop:", e)
 
     return Response({'message': 'Shop updated'})
 
@@ -745,6 +781,17 @@ def create_profile(sender, instance, created, **kwargs):
     """
     if created:
         Profile.objects.get_or_create(user=instance)
+
+
+@receiver(post_save, sender=Shop)
+def reward_first_shop(sender, instance, created, **kwargs):
+    if created and instance.owner:
+        try:
+            # Check if they already have a shop reward
+            if not CreditTransaction.objects.filter(merchant=instance.owner, description='First Shop Created').exists():
+                award_merchant_credits(instance.owner, 5.0, 'reward', 'First Shop Created')
+        except Exception as e:
+            print("Error rewarding first shop:", e)
 # ADMIN FEATURED BANNER
 
 @api_view(['POST'])
@@ -838,6 +885,12 @@ def upload_banner(request):
             template=template,
         )
 
+        try:
+            if not CreditTransaction.objects.filter(merchant=user, description='Upload Shop Banner').exists():
+                award_merchant_credits(user, 2.0, 'reward', 'Upload Shop Banner')
+        except Exception as e:
+            print("Credit reward error in upload_banner:", e)
+
         return Response({
             'message': 'Banner created',
             'id': banner.id
@@ -904,19 +957,16 @@ def delete_all_notifications(request, user_id):
 def create_item(request):
     user = request.user
     shop = get_object_or_404(Shop, owner=user)
-    profile = Profile.objects.get(user=user)
     shop.check_and_update_plan()
     count = Item.objects.filter(shop=shop).count()
 
-    if not shop.is_pro_active() and count >= 15:
-        if profile.reward_credits > 0:
-            profile.reward_credits -= 1
-            profile.save()
-        else:
-            return Response(
-                {"error": "limit_reached"},
-                status=403
-            )
+    credits_obj, _ = MerchantCredits.objects.get_or_create(merchant=user)
+    limit = 20 + credits_obj.bought_limit_slots
+    if not shop.is_pro_active() and count >= limit:
+        return Response(
+            {"error": "limit_reached"},
+            status=403
+        )
 
     image = request.FILES.get('image')
 
@@ -958,6 +1008,11 @@ def create_item(request):
         quantity=quantity,
     )
 
+    try:
+        award_merchant_credits(user, 0.5, 'reward', "Add New Product")
+    except Exception as e:
+        print("Credit reward error in create_item:", e)
+
     return Response({'message': 'Item created'})
 
 
@@ -978,6 +1033,12 @@ def update_item(request, item_id):
         )
 
     shop = item.shop
+
+    orig_name = item.name
+    orig_price = item.price
+    orig_desc = item.description
+    orig_track = item.track_quantity
+    orig_quant = item.quantity
 
     # ─────────────────────────────
     # BASIC FIELDS
@@ -1032,7 +1093,22 @@ def update_item(request, item_id):
         item.track_quantity = False
         item.quantity = 0
 
+    has_changed = (
+        item.name != orig_name or
+        item.price != orig_price or
+        item.description != orig_desc or
+        item.track_quantity != orig_track or
+        item.quantity != orig_quant or
+        image is not None
+    )
+
     item.save()
+
+    if has_changed:
+        try:
+            award_merchant_credits(user, 0.1, 'reward', f"Update Product ({item.id})")
+        except Exception as e:
+            print("Credit reward error in update_item:", e)
 
     return Response({
         'message': 'Item updated'
@@ -1160,6 +1236,11 @@ def upload_shop_media(request):
         )
 
         print("UPLOAD SUCCESS:", media.image.url)
+
+        try:
+            award_merchant_credits(user, 0.2, 'reward', "Upload Shop Gallery Image")
+        except Exception as e:
+            print("Credit reward error in upload_shop_media:", e)
 
         return Response({
             'message': 'Uploaded',
@@ -1570,6 +1651,15 @@ def verify_otp(request):
     record.is_verified = True
     record.save()
 
+    try:
+        user = User.objects.filter(email=email).first()
+        if user:
+            # Check if Verify Email reward is already given
+            if not CreditTransaction.objects.filter(merchant=user, description='Verify Email').exists():
+                award_merchant_credits(user, 3.0, 'reward', 'Verify Email')
+    except Exception as e:
+        print("Credit reward error in verify_otp:", e)
+
     return Response({"success": True})
 
 
@@ -1876,3 +1966,296 @@ def ondc_search(request):
         }
     }
     return Response(beckn_response)
+
+
+# ==============================================================================
+# 💰 MERCH ENGAGEMENT & CREDIT UTILITIES
+# ==============================================================================
+
+from .models import MerchantCredits, CreditTransaction
+
+def award_merchant_credits(user, amount, transaction_type, description):
+    """
+    Awards or deducts credits.
+    transaction_type: 'reward', 'ad_reward', 'spend', 'bonus'
+    """
+    credits_obj, created = MerchantCredits.objects.get_or_create(merchant=user)
+    
+    # Anti-abuse: check daily transaction limits
+    now = timezone.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    if transaction_type == 'reward':
+        # Rule 1: max 1.0 credit/day from product updates/edits
+        if "update" in description.lower() or "edit" in description.lower():
+            todays_update_rewards = CreditTransaction.objects.filter(
+                merchant=user,
+                transaction_type='reward',
+                created_at__gte=today_start,
+                description__icontains="update"
+            ).values_list('amount', flat=True)
+            if sum(todays_update_rewards) + amount > 1.0:
+                return False, "Daily limit of 1.0 credit for product updates reached."
+
+        # Rule 2: max 1.0 credit/day from open/close actions
+        if "open" in description.lower() or "close" in description.lower():
+            todays_status_rewards = CreditTransaction.objects.filter(
+                merchant=user,
+                transaction_type='reward',
+                created_at__gte=today_start,
+                description__iregex=r'(open|close)'
+            ).values_list('amount', flat=True)
+            if sum(todays_status_rewards) + amount > 1.0:
+                return False, "Daily limit of 1.0 credit for shop open/close actions reached."
+
+    # Update available balance
+    if amount < 0 and credits_obj.available_credits + amount < 0:
+        return False, "Insufficient credits."
+
+    credits_obj.available_credits = round(credits_obj.available_credits + amount, 2)
+    if amount > 0:
+        credits_obj.total_earned = round(credits_obj.total_earned + amount, 2)
+    else:
+        credits_obj.total_spent = round(credits_obj.total_spent - amount, 2)
+        
+    credits_obj.save()
+    
+    # Save transaction record
+    CreditTransaction.objects.create(
+        merchant=user,
+        amount=amount,
+        transaction_type=transaction_type,
+        description=description
+    )
+    return True, "Credits updated successfully."
+
+
+def calculate_shop_health(shop):
+    """
+    Computes Shop Health Score (0 - 100) based on profile completeness,
+    operating hours, banners, products, verification status, and activity.
+    """
+    score = 0
+    
+    # 1. Profile Complete (+20)
+    if shop.name and shop.phone and shop.whatsapp_number and shop.address and shop.description:
+        score += 20
+    elif shop.name or shop.phone or shop.whatsapp_number or shop.address or shop.description:
+        score += 10
+        
+    # 2. Opening/Closing Time Set (+10)
+    if shop.opening_time and shop.closing_time:
+        score += 10
+        
+    # 3. Banner Uploaded (+10)
+    if ShopBanner.objects.filter(shop=shop).exists():
+        score += 10
+        
+    # 4. At least 10 products (+15), at least 50 products (+15)
+    prod_count = Item.objects.filter(shop=shop).count()
+    if prod_count >= 50:
+        score += 30
+    elif prod_count >= 10:
+        score += 15
+        
+    # 5. Open/Close Shop Regularly (+10)
+    now = timezone.now()
+    seven_days_ago = now - timedelta(days=7)
+    has_recent_toggles = CreditTransaction.objects.filter(
+        merchant=shop.owner,
+        created_at__gte=seven_days_ago,
+        description__iregex=r'(open|close)'
+    ).exists()
+    if has_recent_toggles:
+        score += 10
+        
+    # 6. Recent Product Updates (+10)
+    thirty_days_ago = now - timedelta(days=30)
+    has_recent_updates = CreditTransaction.objects.filter(
+        merchant=shop.owner,
+        created_at__gte=thirty_days_ago,
+        description__icontains="product"
+    ).exists()
+    if has_recent_updates:
+        score += 10
+        
+    # 7. Verified Merchant (+10)
+    # Pro merchants are considered verified
+    if shop.is_pro_active():
+        score += 10
+        
+    return min(max(score, 0), 100)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def credit_status(request):
+    user = request.user
+    credits_obj, _ = MerchantCredits.objects.get_or_create(merchant=user)
+    shop = Shop.objects.filter(owner=user).first()
+    
+    # Calculate today's rewards
+    now = timezone.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_earned = sum(CreditTransaction.objects.filter(
+        merchant=user,
+        transaction_type__in=['reward', 'ad_reward'],
+        created_at__gte=today_start,
+        amount__gt=0
+    ).values_list('amount', flat=True))
+    
+    # Compute gamification tier
+    total_earned = credits_obj.total_earned
+    health = calculate_shop_health(shop) if shop else 0
+    
+    if total_earned >= 150 and health >= 80:
+        tier = "Platinum Merchant"
+    elif total_earned >= 50 and health >= 60:
+        tier = "Gold Merchant"
+    elif total_earned >= 10:
+        tier = "Silver Merchant"
+    else:
+        tier = "Bronze Merchant"
+        
+    # Limit specs
+    is_pro = shop.is_pro_active() if shop else False
+    product_limit = 20 + credits_obj.bought_limit_slots
+    
+    return Response({
+        "available_credits": credits_obj.available_credits,
+        "total_earned": credits_obj.total_earned,
+        "total_spent": credits_obj.total_spent,
+        "today_earned": round(today_earned, 2),
+        "tier": tier,
+        "shop_health": health,
+        "product_limit": product_limit,
+        "is_pro": is_pro,
+        "credits_needed_for_upload": 10
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def buy_limit_slot(request):
+    user = request.user
+    success, msg = award_merchant_credits(
+        user,
+        -10.0,
+        'spend',
+        "Unlocked 1 Additional Product Slot"
+    )
+    if not success:
+        return Response({"error": msg}, status=400)
+        
+    credits_obj = MerchantCredits.objects.get(merchant=user)
+    credits_obj.bought_limit_slots += 1
+    credits_obj.save()
+    
+    return Response({
+        "message": "Product slot unlocked successfully!",
+        "available_credits": credits_obj.available_credits,
+        "product_limit": 20 + credits_obj.bought_limit_slots
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def ad_complete(request):
+    user = request.user
+    
+    # Server-side validation of ad watch (simple signature verification check if needed,
+    # or just record and award standard ad reward)
+    ad_id = request.data.get('ad_id', 'general_ad')
+    
+    # Check duplicate reward for the same ad_id in the last 1 minute to prevent spam
+    now = timezone.now()
+    one_min_ago = now - timedelta(minutes=1)
+    if CreditTransaction.objects.filter(
+        merchant=user,
+        transaction_type='ad_reward',
+        description__icontains=ad_id,
+        created_at__gte=one_min_ago
+    ).exists():
+        return Response({"error": "Duplicate ad reward request."}, status=400)
+        
+    award_merchant_credits(
+        user,
+        1.0,
+        'ad_reward',
+        f"Watched Rewarded Ad ({ad_id})"
+    )
+    
+    credits_obj = MerchantCredits.objects.get(merchant=user)
+    return Response({
+        "message": "Congratulations! You earned 1 Credit.",
+        "available_credits": credits_obj.available_credits
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def report_action(request):
+    user = request.user
+    action = request.data.get('action') # 'open' or 'close'
+    
+    shop = Shop.objects.filter(owner=user).first()
+    if not shop:
+        return Response({"error": "Shop not found"}, status=404)
+        
+    if action == 'open':
+        shop.is_open = True
+        shop.save()
+        success, msg = award_merchant_credits(
+            user,
+            0.5,
+            'reward',
+            "Opened Shop Status Daily Action"
+        )
+    elif action == 'close':
+        shop.is_open = False
+        shop.save()
+        success, msg = award_merchant_credits(
+            user,
+            0.5,
+            'reward',
+            "Closed Shop Status Daily Action"
+        )
+    else:
+        return Response({"error": "Invalid action"}, status=400)
+        
+    return Response({
+        "message": "Shop status updated successfully!",
+        "is_open": shop.is_open,
+        "reward_status": msg if not success else "+0.5 Credit rewarded"
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_metrics(request):
+    # Enforce staff permissions if needed, but allow authenticated merchants for verification metrics
+    now = timezone.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Metrics summaries
+    reminders_sent = CreditTransaction.objects.filter(description__icontains="Status Daily Action").count()
+    open_clicked = CreditTransaction.objects.filter(description__icontains="Opened Shop").count()
+    close_clicked = CreditTransaction.objects.filter(description__icontains="Closed Shop").count()
+    
+    credits_earned = sum(CreditTransaction.objects.filter(amount__gt=0).values_list('amount', flat=True))
+    credits_spent = sum(CreditTransaction.objects.filter(amount__lt=0).values_list('amount', flat=True))
+    ads_watched = CreditTransaction.objects.filter(transaction_type='ad_reward').count()
+    
+    total_products = Item.objects.count()
+    total_shops = Shop.objects.count()
+    
+    return Response({
+        "reminders_sent_est": reminders_sent,
+        "open_clicked": open_clicked,
+        "close_clicked": close_clicked,
+        "credits_earned": round(credits_earned, 2),
+        "credits_spent": round(abs(credits_spent), 2),
+        "ads_watched": ads_watched,
+        "total_products": total_products,
+        "total_shops": total_shops
+    })
