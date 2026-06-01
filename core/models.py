@@ -224,6 +224,8 @@ class ShopMedia(models.Model):
 class Item(models.Model):
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
     image = CloudinaryField("image")
+    image2 = CloudinaryField("image2", blank=True, null=True)
+    image3 = CloudinaryField("image3", blank=True, null=True)
     name = models.CharField(max_length=100)
 
     description = models.TextField(
@@ -238,6 +240,7 @@ class Item(models.Model):
     quantity = models.PositiveIntegerField(default=0)
 
     track_quantity = models.BooleanField(default=False)
+
 
 
 class FeaturedBanner(models.Model):

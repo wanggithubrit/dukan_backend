@@ -73,6 +73,8 @@ class ShopMediaSerializer(serializers.ModelSerializer):
 # ==============================
 class ItemSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
+    image2 = serializers.SerializerMethodField()
+    image3 = serializers.SerializerMethodField()
     quantity_status = serializers.SerializerMethodField()
     shop_has_quantity_feature = serializers.SerializerMethodField()
 
@@ -85,6 +87,8 @@ class ItemSerializer(serializers.ModelSerializer):
             'price',
             'description',
             'image',
+            'image2',
+            'image3',
             'quantity',
             'track_quantity',
             'quantity_status',
@@ -94,6 +98,28 @@ class ItemSerializer(serializers.ModelSerializer):
     def get_image(self, obj):
         if obj.image:
             url = obj.image.url
+
+            if url.startswith("http://"):
+                url = url.replace("http://", "https://")
+
+            return url
+
+        return None
+
+    def get_image2(self, obj):
+        if obj.image2:
+            url = obj.image2.url
+
+            if url.startswith("http://"):
+                url = url.replace("http://", "https://")
+
+            return url
+
+        return None
+
+    def get_image3(self, obj):
+        if obj.image3:
+            url = obj.image3.url
 
             if url.startswith("http://"):
                 url = url.replace("http://", "https://")

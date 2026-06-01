@@ -963,13 +963,23 @@ def create_item(request):
 
     credits_obj, _ = MerchantCredits.objects.get_or_create(merchant=user)
     limit = 20 + credits_obj.bought_limit_slots
-    if not shop.is_pro_active() and count >= limit:
-        return Response(
-            {"error": "limit_reached"},
-            status=403
-        )
+    is_pro = shop.is_pro_active()
+    if is_pro:
+        if count >= 120:
+            return Response(
+                {"error": "pro_limit_reached", "message": "Pro plan is limited to 120 items."},
+                status=403
+            )
+    else:
+        if count >= limit:
+            return Response(
+                {"error": "limit_reached"},
+                status=403
+            )
 
     image = request.FILES.get('image')
+    image2 = request.FILES.get('image2') if is_pro else None
+    image3 = request.FILES.get('image3') if is_pro else None
 
     if not image:
         return Response({'error': 'Image required'}, status=400)
@@ -1001,6 +1011,8 @@ def create_item(request):
     Item.objects.create(
         shop=shop,
         image=image,
+        image2=image2,
+        image3=image3,
         name=request.data.get('name'),
         price=request.data.get('price'),
 
@@ -1714,7 +1726,7 @@ def create_payment_order(request):
         auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
     )
 
-    amount = 4000  # ₹40 = 4000 paise
+    amount = 5900  # ₹59 = 5900 paise
 
     order = client.order.create({
         "amount": amount,
@@ -1803,7 +1815,7 @@ def create_order(request):
 
     client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
 
-    amount = 4000  # ₹40
+    amount = 5900  # ₹59
 
     order = client.order.create({
         "amount": amount,
