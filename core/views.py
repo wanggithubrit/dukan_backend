@@ -320,12 +320,13 @@ def update_shop(request):
     shop.longitude = request.data.get('longitude', shop.longitude)
 
     # NEW TIMES & REMINDERS
-    opening = request.data.get('opening_time')
-    closing = request.data.get('closing_time')
-    if opening:
-        shop.opening_time = opening
-    if closing:
-        shop.closing_time = closing
+    print("DEBUG: update_shop payload:", request.data)
+    if 'opening_time' in request.data:
+        opening = request.data.get('opening_time')
+        shop.opening_time = opening if (opening and opening != 'null') else None
+    if 'closing_time' in request.data:
+        closing = request.data.get('closing_time')
+        shop.closing_time = closing if (closing and closing != 'null') else None
 
     auto_rem = request.data.get('auto_reminder_enabled')
     if auto_rem is not None:
