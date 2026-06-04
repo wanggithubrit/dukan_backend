@@ -25,6 +25,10 @@ class Shop(models.Model):
         ('Stationery', 'Stationery'),
         ('Furniture', 'Furniture'),
         ('Books', 'Books'),
+        ('Home & Kitchen', 'Home & Kitchen'),
+        ('🔧 Hardware & Tools', '🔧 Hardware & Tools'),
+        ('Computers & Accessories', 'Computers & Accessories'),
+        ('🎁 Gifts & Toys', '🎁 Gifts & Toys'),
         ('Others', 'Others'),
     ]
 
