@@ -9,6 +9,9 @@ from .models import (
     FeaturedBanner,
     Feedback,
     AppSettings,
+    ShopView,
+    MerchantCredits,
+    CreditTransaction,
 )
 
 
@@ -19,6 +22,9 @@ admin.site.register(Favorite)
 admin.site.register(ShopMedia)
 admin.site.register(Feedback)
 admin.site.register(AppSettings)
+admin.site.register(ShopView)
+admin.site.register(MerchantCredits)
+admin.site.register(CreditTransaction)
 
 
 # ─────────────────────────────

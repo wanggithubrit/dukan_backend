@@ -251,7 +251,6 @@ def get_nearby_shops(request):
 # ==============================
 
 @api_view(['GET'])
-@authentication_classes([])
 @permission_classes([AllowAny])
 def get_shop_detail(request, shop_id):
     shop = get_object_or_404(Shop, id=shop_id)
@@ -285,6 +284,13 @@ def get_shop_detail(request, shop_id):
         )
     else:
         data['distance'] = None
+
+    # Log view if user is logged in
+    if request.user and request.user.is_authenticated:
+        try:
+            ShopView.objects.create(shop=shop, user=request.user)
+        except Exception as e:
+            print("Error saving ShopView log:", e)
 
     return Response({
         "shop": data,
@@ -555,6 +561,7 @@ def merchant_dashboard(request, user_id):
                 "cover_images": media.count(),
                 "items": items.count(),
                 "offers": banners.count(),
+                "views": ShopView.objects.filter(shop=shop).count(),
             },
 
             "plan": {
