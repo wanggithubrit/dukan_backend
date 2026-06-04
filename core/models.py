@@ -408,3 +408,28 @@ class CreditTransaction(models.Model):
 
     def __str__(self):
         return f"{self.merchant.username} - {self.transaction_type} ({self.amount})"
+
+
+# ==============================
+# 📊 MONITORING & TELEMETRY
+# ==============================
+
+class ORSApiCall(models.Model):
+    timestamp = models.DateTimeField(auto_now_add=True)
+    endpoint = models.CharField(max_length=255, default='directions')
+    response_status = models.IntegerField(default=200)
+
+    class Meta:
+        verbose_name = "ORS API Call"
+        verbose_name = "ORS API Calls"
+
+
+class ActiveUser(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    last_active = models.DateTimeField(auto_now=True)
+    date = models.DateField(default=timezone.localdate)
+
+    class Meta:
+        unique_together = ('user', 'date')
+        verbose_name = "Active User"
+        verbose_name_plural = "Active Users"

@@ -113,11 +113,22 @@ def calculate_distance(lat1, lon1, lat2, lon2):
             # Note: start and end are formatted as start=lon1,lat1 and end=lon2,lat2 for OpenRouteService
             url = f"https://api.openrouteservice.org/v2/directions/driving-car?api_key={ors_key}&start={lon1},{lat1}&end={lon2},{lat2}"
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Dukan App)'})
-            with urllib.request.urlopen(req, timeout=2.0) as response:
-                data = json.loads(response.read().decode())
-                if 'features' in data:
-                    dist_meters = data['features'][0]['properties']['summary']['distance']
-                    result_dist = round(dist_meters / 1000.0, 1)
+            status = 200
+            try:
+                with urllib.request.urlopen(req, timeout=2.0) as response:
+                    data = json.loads(response.read().decode())
+                    if 'features' in data:
+                        dist_meters = data['features'][0]['properties']['summary']['distance']
+                        result_dist = round(dist_meters / 1000.0, 1)
+            except Exception as http_err:
+                status = getattr(http_err, 'code', 500)
+                raise http_err
+            finally:
+                try:
+                    from core.models import ORSApiCall
+                    ORSApiCall.objects.create(endpoint='directions/driving-car', response_status=status)
+                except Exception:
+                    pass
         except Exception as e:
             pass
 
@@ -2268,6 +2279,12 @@ def admin_metrics(request):
     
     total_products = Item.objects.count()
     total_shops = Shop.objects.count()
+
+    # Telemetry
+    from core.models import ORSApiCall, ActiveUser
+    today_date = timezone.localdate()
+    ors_calls_today = ORSApiCall.objects.filter(timestamp__gte=today_start).count()
+    active_users_today = ActiveUser.objects.filter(date=today_date).count()
     
     return Response({
         "reminders_sent_est": reminders_sent,
@@ -2277,5 +2294,7 @@ def admin_metrics(request):
         "credits_spent": round(abs(credits_spent), 2),
         "ads_watched": ads_watched,
         "total_products": total_products,
-        "total_shops": total_shops
+        "total_shops": total_shops,
+        "ors_calls_today": ors_calls_today,
+        "active_users_today": active_users_today
     })
