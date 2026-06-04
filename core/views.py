@@ -561,7 +561,7 @@ def merchant_dashboard(request, user_id):
                 "cover_images": media.count(),
                 "items": items.count(),
                 "offers": banners.count(),
-                "views": ShopView.objects.filter(shop=shop).count(),
+                "views": ShopView.objects.filter(shop=shop, viewed_at__gte=timezone.now() - timedelta(days=7)).count(),
             },
 
             "plan": {
