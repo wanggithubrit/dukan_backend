@@ -20,9 +20,13 @@ def handle_referral_upgrade(user):
         # 🔥 COUNT REFERRALS
         ref_count = Profile.objects.filter(referred_by=user).count()
 
-        # 🔥 APPLY REWARD
-        if ref_count >= settings.REFERRAL_REQUIRED and not shop.is_pro_active():
-            shop.activate_pro()
+        # 🔥 APPLY REWARD (ONLY ONCE)
+        referrer_profile = Profile.objects.filter(user=user).first()
+        if referrer_profile and not referrer_profile.referral_reward_claimed:
+            if ref_count >= settings.REFERRAL_REQUIRED:
+                shop.activate_pro()
+                referrer_profile.referral_reward_claimed = True
+                referrer_profile.save(update_fields=['referral_reward_claimed'])
 
     except Exception as e:
         print("Referral error:", e)

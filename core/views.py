@@ -719,11 +719,15 @@ def signup(request):
                     shop.plan_expiry = None
                     shop.save()
  
-                count = Profile.objects.filter(referred_by=referrer.user, role='merchant').count()
-                if count >= 3 and shop.plan == 'free':
-                    shop.plan = 'pro'
-                    shop.plan_expiry = timezone.now() + timedelta(days=30)
-                    shop.save()
+                referrer.refresh_from_db()
+                if not referrer.referral_reward_claimed:
+                    count = Profile.objects.filter(referred_by=referrer.user, role='merchant').count()
+                    if count >= 3:
+                        shop.plan = 'pro'
+                        shop.plan_expiry = timezone.now() + timedelta(days=30)
+                        shop.save()
+                        referrer.referral_reward_claimed = True
+                        referrer.save(update_fields=['referral_reward_claimed'])
  
         refresh = RefreshToken.for_user(user)
         return Response({

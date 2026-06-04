@@ -184,6 +184,7 @@ class Profile(models.Model):
     reward_credits = models.IntegerField(default=0)
 
     referral_code = models.CharField(max_length=10, unique=True, blank=True, null=True)
+    referral_reward_claimed = models.BooleanField(default=False)
 
     referred_by = models.ForeignKey(
         User,
