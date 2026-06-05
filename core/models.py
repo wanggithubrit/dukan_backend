@@ -146,7 +146,7 @@ class Notification(models.Model):
 
 class ShopView(models.Model):
     shop = models.ForeignKey('Shop', on_delete=models.CASCADE)
-    user = models.ForeignKey('auth.User', on_delete=models.CASCADE)
+    user = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True)
     viewed_at = models.DateTimeField(auto_now_add=True)
 
 

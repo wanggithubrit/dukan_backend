@@ -253,7 +253,7 @@ def get_nearby_shops(request):
         result.append(data)
 
     return Response(
-        sorted(result, key=lambda x: x['distance'])
+        sorted(result, key=lambda x: (x.get('distance') or 0, 0 if x.get('plan') == 'pro' else 1))
     )
 
 
@@ -296,12 +296,12 @@ def get_shop_detail(request, shop_id):
     else:
         data['distance'] = None
 
-    # Log view if user is logged in
-    if request.user and request.user.is_authenticated:
-        try:
-            ShopView.objects.create(shop=shop, user=request.user)
-        except Exception as e:
-            print("Error saving ShopView log:", e)
+    # Log view (supports logged-in and guest views)
+    try:
+        user = request.user if (request.user and request.user.is_authenticated) else None
+        ShopView.objects.create(shop=shop, user=user)
+    except Exception as e:
+        print("Error saving ShopView log:", e)
 
     return Response({
         "shop": data,
