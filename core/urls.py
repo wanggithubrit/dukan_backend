@@ -14,6 +14,7 @@ from .views import (
     login,
     my_shop,
     signup,
+    validate_referral,
     toggle_favorite, 
     get_favorites,
     update_shop,
@@ -72,6 +73,7 @@ urlpatterns = [
     path('my-shop/<int:user_id>/', my_shop),
     path('shop/status/', update_shop_status),
     path('auth/signup/', signup),
+    path('auth/validate-referral/', validate_referral),
     path('auth/login/', login),
 
     path('user/<int:id>/', get_user),

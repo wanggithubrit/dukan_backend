@@ -621,11 +621,6 @@ def signup(request):
                 referrer_profile = Profile.objects.filter(referral_code__iexact=ref_code).first()
                 if not referrer_profile:
                     return Response({"error": "Invalid referral code"}, status=400)
-                
-                # Check if referrer has a shop and is already on the Pro plan
-                referrer_shop = Shop.objects.filter(owner=referrer_profile.user).first()
-                if referrer_shop and referrer_shop.plan == 'pro':
-                    return Response({"error": "Referral code is inactive (user is already on Pro plan)"}, status=400)
  
         existing_by_email    = User.objects.filter(email=email).first()
         existing_by_username = User.objects.filter(username=username).first()
@@ -706,13 +701,22 @@ def signup(request):
  
         if referral_enabled and ref_code and role == 'merchant':
             referrer = Profile.objects.filter(referral_code__iexact=ref_code).first()
+            if not referrer and ref_code.upper() == 'DUKAN777':
+                referrer = Profile.objects.filter(user__is_staff=True).first() or Profile.objects.filter(role='merchant').first() or Profile.objects.first()
+            
             if referrer and referrer.user != user:
-                profile.referred_by = referrer.user
-                profile.save()
-                
-                # Create Referral record for admin tracking
-                from .models import Referral
-                Referral.objects.get_or_create(referrer=referrer.user, referred_user=user)
+                # Check if referrer has a shop and is already on the Pro plan
+                referrer_shop = Shop.objects.filter(owner=referrer.user).first()
+                if referrer_shop and referrer_shop.plan == 'pro':
+                    # Referral is inactive: do not link and do not reward
+                    referrer = None
+                else:
+                    profile.referred_by = referrer.user
+                    profile.save()
+                    
+                    # Create Referral record for admin tracking
+                    from .models import Referral
+                    Referral.objects.get_or_create(referrer=referrer.user, referred_user=user)
  
         # ── Create shop ───────────────────────────────────────────
         if role == 'merchant':
@@ -763,6 +767,28 @@ def signup(request):
         traceback.print_exc()
         return Response({"error": str(e)}, status=500)
  
+
+
+@csrf_exempt
+@api_view(['POST'])
+def validate_referral(request):
+    ref_code = request.data.get('referral_code', '').strip()
+    if not ref_code:
+        return Response({"valid": False, "error": "Referral code cannot be empty"}, status=400)
+    
+    if ref_code.upper() == 'DUKAN777':
+        return Response({"valid": True, "message": "System referral code is active!"})
+        
+    referrer_profile = Profile.objects.filter(referral_code__iexact=ref_code).first()
+    if not referrer_profile:
+        return Response({"valid": False, "error": "Invalid referral code"}, status=400)
+        
+    # Check if referrer has a shop and is already on the Pro plan
+    referrer_shop = Shop.objects.filter(owner=referrer_profile.user).first()
+    if referrer_shop and referrer_shop.plan == 'pro':
+        return Response({"valid": False, "error": "Referral code is inactive (user is already on Pro plan)"}, status=400)
+        
+    return Response({"valid": True, "message": f"Code is active! Referrer: {referrer_profile.user.username}"})
 
 
 @csrf_exempt
