@@ -614,9 +614,14 @@ def signup(request):
 
         # ── Referral validation ────────────────────────────────────
         if ref_code:
-            referrer_exists = Profile.objects.filter(referral_code=ref_code.upper()).exists()
-            if not referrer_exists:
+            referrer_profile = Profile.objects.filter(referral_code__iexact=ref_code).first()
+            if not referrer_profile:
                 return Response({"error": "Invalid referral code"}, status=400)
+            
+            # Check if referrer has a shop and is already on the Pro plan
+            referrer_shop = Shop.objects.filter(owner=referrer_profile.user).first()
+            if referrer_shop and referrer_shop.plan == 'pro':
+                return Response({"error": "Referral code is inactive (user is already on Pro plan)"}, status=400)
  
         existing_by_email    = User.objects.filter(email=email).first()
         existing_by_username = User.objects.filter(username=username).first()
@@ -696,7 +701,7 @@ def signup(request):
         referrer = None
  
         if referral_enabled and ref_code and role == 'merchant':
-            referrer = Profile.objects.filter(referral_code=ref_code.upper()).first()
+            referrer = Profile.objects.filter(referral_code__iexact=ref_code).first()
             if referrer and referrer.user != user:
                 profile.referred_by = referrer.user
                 profile.save()
@@ -1619,13 +1624,13 @@ def send_otp_email(email, otp):
 
     payload = {
         "sender": {
-            "name": "Dukan",
+            "name": "mydukan",
             "email": "dukanpersonal316@gmail.com"
         },
         "to": [
             {"email": email}
         ],
-        "subject": "Reset Password OTP",
+        "subject": "mydukan Verification OTP",
         "htmlContent": f"<h2>Your OTP is {otp}</h2>"
     }
 
