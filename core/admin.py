@@ -148,3 +148,26 @@ class ShopAdmin(admin.ModelAdmin):
         return f"{diff.days} days"
 
     days_left.short_description = "Days Left"
+
+
+# ─────────────────────────────
+# PROFILE & REFERRAL ADMIN
+# ─────────────────────────────
+from .models import Profile, Referral
+
+@admin.register(Profile)
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'role', 'referral_code', 'referred_by_user', 'reward_credits', 'referral_reward_claimed')
+    search_fields = ('user__username', 'user__email', 'referral_code')
+    list_filter = ('role', 'referral_reward_claimed')
+
+    def referred_by_user(self, obj):
+        return obj.referred_by.username if obj.referred_by else "-"
+    referred_by_user.short_description = "Referred By"
+
+
+@admin.register(Referral)
+class ReferralAdmin(admin.ModelAdmin):
+    list_display = ('referrer', 'referred_user', 'created_at')
+    search_fields = ('referrer__username', 'referred_user__username')
+    list_filter = ('created_at',)

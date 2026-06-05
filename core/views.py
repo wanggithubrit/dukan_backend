@@ -614,14 +614,18 @@ def signup(request):
 
         # ── Referral validation ────────────────────────────────────
         if ref_code:
-            referrer_profile = Profile.objects.filter(referral_code__iexact=ref_code).first()
-            if not referrer_profile:
-                return Response({"error": "Invalid referral code"}, status=400)
-            
-            # Check if referrer has a shop and is already on the Pro plan
-            referrer_shop = Shop.objects.filter(owner=referrer_profile.user).first()
-            if referrer_shop and referrer_shop.plan == 'pro':
-                return Response({"error": "Referral code is inactive (user is already on Pro plan)"}, status=400)
+            if ref_code.upper() == 'DUKAN777':
+                # Accept system-wide fallback code silently
+                pass
+            else:
+                referrer_profile = Profile.objects.filter(referral_code__iexact=ref_code).first()
+                if not referrer_profile:
+                    return Response({"error": "Invalid referral code"}, status=400)
+                
+                # Check if referrer has a shop and is already on the Pro plan
+                referrer_shop = Shop.objects.filter(owner=referrer_profile.user).first()
+                if referrer_shop and referrer_shop.plan == 'pro':
+                    return Response({"error": "Referral code is inactive (user is already on Pro plan)"}, status=400)
  
         existing_by_email    = User.objects.filter(email=email).first()
         existing_by_username = User.objects.filter(username=username).first()
@@ -705,6 +709,10 @@ def signup(request):
             if referrer and referrer.user != user:
                 profile.referred_by = referrer.user
                 profile.save()
+                
+                # Create Referral record for admin tracking
+                from .models import Referral
+                Referral.objects.get_or_create(referrer=referrer.user, referred_user=user)
  
         # ── Create shop ───────────────────────────────────────────
         if role == 'merchant':
