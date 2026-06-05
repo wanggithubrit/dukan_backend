@@ -209,13 +209,15 @@ def get_nearby_shops(request):
     result = []
 
     for shop in shops:
-
         if not shop.latitude or not shop.longitude:
             continue
 
         distance = dist_map.get(shop.id)
         if distance is None:
             continue
+
+        # Check and update plan expiry
+        shop.check_and_update_plan()
 
         # ✅ SHOP DATA
         data = ShopSerializer(
@@ -609,6 +611,12 @@ def signup(request):
  
         if len(password) < 6:
             return Response({"error": "Password must be at least 6 characters"}, status=400)
+
+        # ── Referral validation ────────────────────────────────────
+        if ref_code:
+            referrer_exists = Profile.objects.filter(referral_code=ref_code.upper()).exists()
+            if not referrer_exists:
+                return Response({"error": "Invalid referral code"}, status=400)
  
         existing_by_email    = User.objects.filter(email=email).first()
         existing_by_username = User.objects.filter(username=username).first()
