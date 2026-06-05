@@ -118,7 +118,9 @@ class ShopAdmin(admin.ModelAdmin):
         'plan_expiry',
         'days_left',
         'plan_status',
-        'is_open'
+        'is_open',
+        'referred_by_user',
+        'referred_by_code'
     )
 
     list_filter = ('plan', 'is_open')
@@ -149,6 +151,21 @@ class ShopAdmin(admin.ModelAdmin):
 
     days_left.short_description = "Days Left"
 
+    # ✅ REFERRAL COLUMNS FOR SHOP LIST
+    def referred_by_user(self, obj):
+        profile = getattr(obj.owner, 'profile', None)
+        if profile and profile.referred_by:
+            return profile.referred_by.username
+        return "-"
+    referred_by_user.short_description = "Referred By"
+
+    def referred_by_code(self, obj):
+        profile = getattr(obj.owner, 'profile', None)
+        if profile and profile.referred_by and hasattr(profile.referred_by, 'profile'):
+            return profile.referred_by.profile.referral_code
+        return "-"
+    referred_by_code.short_description = "Used Code"
+
 
 # ─────────────────────────────
 # PROFILE & REFERRAL ADMIN
@@ -157,13 +174,19 @@ from .models import Profile, Referral
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'role', 'referral_code', 'referred_by_user', 'reward_credits', 'referral_reward_claimed')
+    list_display = ('user', 'role', 'referral_code', 'referred_by_user', 'referred_by_code', 'reward_credits', 'referral_reward_claimed')
     search_fields = ('user__username', 'user__email', 'referral_code')
     list_filter = ('role', 'referral_reward_claimed')
 
     def referred_by_user(self, obj):
         return obj.referred_by.username if obj.referred_by else "-"
     referred_by_user.short_description = "Referred By"
+
+    def referred_by_code(self, obj):
+        if obj.referred_by and hasattr(obj.referred_by, 'profile'):
+            return obj.referred_by.profile.referral_code or "-"
+        return "-"
+    referred_by_code.short_description = "Used Code"
 
 
 @admin.register(Referral)
