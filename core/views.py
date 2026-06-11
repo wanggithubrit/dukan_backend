@@ -837,6 +837,8 @@ def get_user(request, id):
         "username": user.username,
         "email": user.email,
         "reward_credits": profile.reward_credits,
+        "avatar": profile.avatar or "male_1",
+        "role": profile.role or "customer"
     })
 
 from .models import ShopView
