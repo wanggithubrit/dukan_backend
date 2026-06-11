@@ -254,7 +254,7 @@ def get_nearby_shops(request):
         is_pro = 0 if x.get('plan') == 'pro' else 1
         dist = x.get('distance')
         dist_val = float(dist) if dist is not None else float('inf')
-        return (is_pro, dist_val, x.get('name', '').lower())
+        return (is_pro, dist_val, str(x.get('name') or '').lower())
 
     return Response(sorted(result, key=sort_key))
 
