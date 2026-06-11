@@ -23,8 +23,6 @@ admin.site.register(ShopMedia)
 admin.site.register(Feedback)
 admin.site.register(AppSettings)
 admin.site.register(ShopView)
-admin.site.register(MerchantCredits)
-admin.site.register(CreditTransaction)
 
 
 # ─────────────────────────────
@@ -215,6 +213,24 @@ class ProPurchaseAdmin(admin.ModelAdmin):
         return obj.shop.owner.email if obj.shop and obj.shop.owner else "-"
     shop_owner_email.short_description = "Owner Email"
 
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        qs = self.get_queryset(request)
+        stats = qs.aggregate(
+            total_amount=Sum('amount'),
+            total_count=Count('id'),
+            unique_shops=Count('shop', distinct=True)
+        )
+        total_amt = stats['total_amount'] or 0.00
+        total_cnt = stats['total_count'] or 0
+        uniq_shops = stats['unique_shops'] or 0
+        self.message_user(
+            request,
+            f"🚀 Total Pro Subscriptions: ₹{total_amt:.2f} | Total Purchases: {total_cnt} | Unique Shops: {uniq_shops}",
+            level="info"
+        )
+        return super().changelist_view(request, extra_context=extra_context)
+
 
 @admin.register(AppRelease)
 class AppReleaseAdmin(admin.ModelAdmin):
@@ -247,4 +263,50 @@ class SupportContributionAdmin(admin.ModelAdmin):
         total_amt = stats['total_amount'] or 0.00
         total_cnt = stats['total_count'] or 0
         self.message_user(request, f"❤️ Total Contributions: ₹{total_amt} | Total Supporters: {total_cnt}", level="info")
+        return super().changelist_view(request, extra_context=extra_context)
+
+
+@admin.register(MerchantCredits)
+class MerchantCreditsAdmin(admin.ModelAdmin):
+    list_display = ('merchant', 'available_credits', 'total_earned', 'total_spent', 'bought_limit_slots', 'updated_at')
+    search_fields = ('merchant__username', 'merchant__email')
+    list_filter = ('updated_at',)
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        qs = self.get_queryset(request)
+        stats = qs.aggregate(
+            total_slots=Sum('bought_limit_slots'),
+            total_merchants=Count('merchant', distinct=True)
+        )
+        total_slots = stats['total_slots'] or 0
+        total_merchants = stats['total_merchants'] or 0
+        self.message_user(
+            request,
+            f"📦 Total Bought Limit Slots (Quantity): {total_slots} | Total Merchants with Slots: {total_merchants}",
+            level="info"
+        )
+        return super().changelist_view(request, extra_context=extra_context)
+
+
+@admin.register(CreditTransaction)
+class CreditTransactionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'merchant', 'amount', 'transaction_type', 'description', 'created_at')
+    search_fields = ('merchant__username', 'merchant__email', 'description')
+    list_filter = ('transaction_type', 'created_at')
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        qs = self.get_queryset(request)
+        stats = qs.aggregate(
+            total_amount=Sum('amount'),
+            total_count=Count('id')
+        )
+        total_amt = stats['total_amount'] or 0.0
+        total_cnt = stats['total_count'] or 0
+        self.message_user(
+            request,
+            f"💰 Total Transactions: {total_cnt} | Net Transaction Amount: {total_amt} Credits",
+            level="info"
+        )
         return super().changelist_view(request, extra_context=extra_context)
