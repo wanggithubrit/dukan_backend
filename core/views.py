@@ -2522,3 +2522,25 @@ def delete_account(request):
     except Exception as e:
         print("Failed to delete account:", e)
         return Response({"error": f"An error occurred while deleting your account: {str(e)}"}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def debug_error(request):
+    import traceback
+    try:
+        from core.models import Shop, AppRelease, SupportContribution
+        shops = list(Shop.objects.all())
+        app_releases = list(AppRelease.objects.all())
+        support_cnt = SupportContribution.objects.count()
+        return Response({
+            "status": "ok",
+            "shops_count": len(shops),
+            "app_releases_count": len(app_releases),
+            "support_cnt": support_cnt
+        })
+    except Exception as e:
+        return Response({
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }, status=500)

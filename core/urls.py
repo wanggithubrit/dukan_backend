@@ -49,6 +49,7 @@ from .views import (
     admin_metrics,
     delete_account,
     verify_payment,
+    debug_error,
 )
 
 from django.conf import settings
@@ -137,6 +138,7 @@ path(
     path('support/create-order/', create_support_order),
     path('support/verify-payment/', verify_support_payment),
     path('auth/delete/', delete_account),
+    path('debug/error/', debug_error),
     ]
 
 
