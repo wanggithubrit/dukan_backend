@@ -399,6 +399,8 @@ class Referral(models.Model):
 
 class AppSettings(models.Model):
     referral_enabled = models.BooleanField(default=True)
+    free_tier_limit = models.IntegerField(default=20, help_text="Base item limit for free tier shops")
+    pro_tier_limit = models.IntegerField(default=120, help_text="Base item limit for pro tier shops")
 
     def __str__(self):
         return "App Settings"

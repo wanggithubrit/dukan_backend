@@ -1030,13 +1030,17 @@ def create_item(request):
     shop.check_and_update_plan()
     count = Item.objects.filter(shop=shop).count()
 
+    settings_obj = AppSettings.objects.first()
+    free_limit_base = settings_obj.free_tier_limit if settings_obj else 20
+    pro_limit_base = settings_obj.pro_tier_limit if settings_obj else 120
+
     credits_obj, _ = MerchantCredits.objects.get_or_create(merchant=user)
-    limit = 20 + credits_obj.bought_limit_slots
+    limit = free_limit_base + credits_obj.bought_limit_slots
     is_pro = shop.is_pro_active()
     if is_pro:
-        if count >= 120:
+        if count >= pro_limit_base:
             return Response(
-                {"error": "pro_limit_reached", "message": "Pro plan is limited to 120 items."},
+                {"error": "pro_limit_reached", "message": f"Pro plan is limited to {pro_limit_base} items."},
                 status=403
             )
     else:
@@ -2222,7 +2226,9 @@ def credit_status(request):
         
     # Limit specs
     is_pro = shop.is_pro_active() if shop else False
-    product_limit = 20 + credits_obj.bought_limit_slots
+    settings_obj = AppSettings.objects.first()
+    free_limit_base = settings_obj.free_tier_limit if settings_obj else 20
+    product_limit = free_limit_base + credits_obj.bought_limit_slots
     
     return Response({
         "available_credits": credits_obj.available_credits,
@@ -2254,10 +2260,13 @@ def buy_limit_slot(request):
     credits_obj.bought_limit_slots += 1
     credits_obj.save()
     
+    settings_obj = AppSettings.objects.first()
+    free_limit_base = settings_obj.free_tier_limit if settings_obj else 20
+    
     return Response({
         "message": "Product slot unlocked successfully!",
         "available_credits": credits_obj.available_credits,
-        "product_limit": 20 + credits_obj.bought_limit_slots
+        "product_limit": free_limit_base + credits_obj.bought_limit_slots
     })
 
 
