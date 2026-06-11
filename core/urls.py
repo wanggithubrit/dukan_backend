@@ -48,6 +48,7 @@ from .views import (
     report_action,
     admin_metrics,
     delete_account,
+    verify_payment,
 )
 
 from django.conf import settings
@@ -102,6 +103,10 @@ urlpatterns = [
     path('send-otp/', send_otp),
     path('verify-otp/', verify_otp),
     path('reward/', reward_user),
+    path('create-order/', create_payment_order),
+    path('verify-payment/', verify_payment),
+    path('payment/create/', create_payment_order),
+    path('payment/verify/', verify_payment),
     path('payment/create-order/', create_payment_order),
     path('notification/read/<int:notification_id>/', mark_notification_read),
     path('notification/delete/<int:notification_id>/', delete_notification),
