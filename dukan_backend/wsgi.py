@@ -8,18 +8,16 @@ https://docs.djangoproject.com/en/6.0/howto/deployment/wsgi/
 """
 
 import os
-import django
-from django.core.management import call_command
 from django.core.wsgi import get_wsgi_application
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "dukan_backend.settings")
-django.setup()
+
+application = get_wsgi_application()
 
 try:
+    from django.core.management import call_command
     print("Running database migrations on WSGI startup...")
     call_command("migrate", interactive=False)
     print("Database migrations applied successfully!")
 except Exception as e:
     print("Failed to run migrations on startup:", e)
-
-application = get_wsgi_application()
