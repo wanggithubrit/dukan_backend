@@ -547,12 +547,16 @@ def merchant_dashboard(request, user_id):
         banners = ShopBanner.objects.filter(shop=shop)
 
         # PLAN LIMITS
+        settings_obj = AppSettings.objects.first()
+        free_limit_base = settings_obj.free_tier_limit if settings_obj else 20
+        pro_limit_base = settings_obj.pro_tier_limit if settings_obj else 120
+
         if not shop.is_pro_active():
             cover_limit = 1
-            item_limit = 15
+            item_limit = free_limit_base + profile.user.credits.bought_limit_slots if hasattr(profile.user, 'credits') else free_limit_base
         else:
             cover_limit = 5
-            item_limit = -1
+            item_limit = pro_limit_base
 
         return Response({
             "shop": ShopSerializer(shop, context={'request': request}).data,
@@ -582,7 +586,9 @@ def merchant_dashboard(request, user_id):
                 "cover_limit": cover_limit,
                 "item_limit": item_limit,
                 "expiry": shop.plan_expiry,
-                 "credits": profile.reward_credits  # 🔥 ADD THIS
+                "credits": profile.reward_credits,
+                "pro_tier_limit": pro_limit_base,
+                "free_tier_limit": free_limit_base
             }
         })
 
@@ -2228,6 +2234,7 @@ def credit_status(request):
     is_pro = shop.is_pro_active() if shop else False
     settings_obj = AppSettings.objects.first()
     free_limit_base = settings_obj.free_tier_limit if settings_obj else 20
+    pro_limit_base = settings_obj.pro_tier_limit if settings_obj else 120
     product_limit = free_limit_base + credits_obj.bought_limit_slots
     
     return Response({
@@ -2239,6 +2246,7 @@ def credit_status(request):
         "shop_health": health,
         "product_limit": product_limit,
         "is_pro": is_pro,
+        "pro_tier_limit": pro_limit_base,
         "credits_needed_for_upload": 10
     })
 
