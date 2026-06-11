@@ -187,35 +187,31 @@ def get_nearby_shops(request):
     try:
         user_lat = float(request.GET.get('lat'))
         user_lon = float(request.GET.get('lon'))
+        has_coords = True
     except:
-        return Response({"error": "Provide lat & lon"}, status=400)
+        has_coords = False
 
     shops = list(Shop.objects.all())
     
-    from concurrent.futures import ThreadPoolExecutor
+    dist_map = {}
+    if has_coords:
+        from concurrent.futures import ThreadPoolExecutor
 
-    def fetch_dist(s):
-        if not s.latitude or not s.longitude:
-            return s.id, None
-        try:
-            d = calculate_distance(user_lat, user_lon, s.latitude, s.longitude)
-            return s.id, d
-        except Exception:
-            return s.id, None
+        def fetch_dist(s):
+            if not s.latitude or not s.longitude:
+                return s.id, None
+            try:
+                d = calculate_distance(user_lat, user_lon, s.latitude, s.longitude)
+                return s.id, d
+            except Exception:
+                return s.id, None
 
-    with ThreadPoolExecutor(max_workers=20) as executor:
-        dist_map = dict(executor.map(fetch_dist, shops))
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            dist_map = dict(executor.map(fetch_dist, shops))
 
     result = []
 
     for shop in shops:
-        if not shop.latitude or not shop.longitude:
-            continue
-
-        distance = dist_map.get(shop.id)
-        if distance is None:
-            continue
-
         # Check and update plan expiry
         shop.check_and_update_plan()
 
@@ -250,13 +246,17 @@ def get_nearby_shops(request):
         ).data
 
         # ✅ DISTANCE
-        data["distance"] = distance
+        data["distance"] = dist_map.get(shop.id) if has_coords else None
 
         result.append(data)
 
-    return Response(
-        sorted(result, key=lambda x: (x.get('distance') or 0, 0 if x.get('plan') == 'pro' else 1))
-    )
+    def sort_key(x):
+        is_pro = 0 if x.get('plan') == 'pro' else 1
+        dist = x.get('distance')
+        dist_val = float(dist) if dist is not None else float('inf')
+        return (is_pro, dist_val, x.get('name', '').lower())
+
+    return Response(sorted(result, key=sort_key))
 
 
 # ==============================
