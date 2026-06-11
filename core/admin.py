@@ -241,17 +241,151 @@ class AppReleaseAdmin(admin.ModelAdmin):
 
 from .models import SupportContribution
 from django.db.models import Sum, Count
+from django.utils import timezone
+from datetime import datetime, timedelta
+import csv
+from django.http import HttpResponse
+
+class SupportContributionDateFilter(admin.SimpleListFilter):
+    title = 'Date Created'
+    parameter_name = 'date_range'
+    template = 'admin/date_range_filter.html'
+
+    def __init__(self, request, params, model, model_admin):
+        self.request = request
+        super().__init__(request, params, model, model_admin)
+
+    def lookups(self, request, model_admin):
+        return (
+            ('today', 'Today'),
+            ('this_week', 'This Week'),
+            ('this_month', 'This Month'),
+            ('last_month', 'Last Month'),
+            ('this_year', 'This Year'),
+            ('custom', 'Custom Date Range'),
+        )
+
+    def start_value(self):
+        return self.request.GET.get('date_created_start', '')
+
+    def end_value(self):
+        return self.request.GET.get('date_created_end', '')
+
+    def preserved_params(self):
+        params = []
+        for k, v in self.request.GET.items():
+            if k not in ['date_created_start', 'date_created_end', 'date_range']:
+                params.append({'key': k, 'value': v})
+        return params
+
+    def queryset(self, request, queryset):
+        now = timezone.now()
+        local_now = timezone.localtime(now)
+        today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        val = self.value()
+        if val == 'today':
+            return queryset.filter(created_at__gte=today_start)
+        elif val == 'this_week':
+            start_of_week = today_start - timedelta(days=today_start.weekday())
+            return queryset.filter(created_at__gte=start_of_week)
+        elif val == 'this_month':
+            start_of_month = today_start.replace(day=1)
+            return queryset.filter(created_at__gte=start_of_month)
+        elif val == 'last_month':
+            first_of_this_month = today_start.replace(day=1)
+            last_day_of_last_month = first_of_this_month - timedelta(days=1)
+            first_of_last_month = last_day_of_last_month.replace(day=1)
+            return queryset.filter(created_at__gte=first_of_last_month, created_at__lt=first_of_this_month)
+        elif val == 'this_year':
+            start_of_year = today_start.replace(month=1, day=1)
+            return queryset.filter(created_at__gte=start_of_year)
+        elif val == 'custom' or (not val and (request.GET.get('date_created_start') or request.GET.get('date_created_end'))):
+            start_date_str = request.GET.get('date_created_start')
+            end_date_str = request.GET.get('date_created_end')
+            if start_date_str:
+                try:
+                    start_date = timezone.make_aware(datetime.strptime(start_date_str, '%Y-%m-%d'))
+                    queryset = queryset.filter(created_at__gte=start_date)
+                except ValueError:
+                    pass
+            if end_date_str:
+                try:
+                    end_date = timezone.make_aware(datetime.strptime(end_date_str + ' 23:59:59', '%Y-%m-%d %H:%M:%S'))
+                    queryset = queryset.filter(created_at__lte=end_date)
+                except ValueError:
+                    pass
+            return queryset
+            
+        return queryset
+
 
 @admin.register(SupportContribution)
 class SupportContributionAdmin(admin.ModelAdmin):
     list_display = ('id', 'user_display', 'amount', 'platform', 'razorpay_order_id', 'razorpay_payment_id', 'created_at')
-    list_filter = ('platform', 'created_at')
-    search_fields = ('user__username', 'user__email', 'razorpay_payment_id', 'razorpay_order_id')
+    list_filter = ('platform', SupportContributionDateFilter)
+    search_fields = ('user__email', 'platform')
     readonly_fields = ('created_at',)
+    actions = ['delete_selected_contributions', 'export_selected_to_csv', 'export_all_to_csv']
 
     def user_display(self, obj):
         return obj.user.email if obj.user else "Anonymous / Guest"
     user_display.short_description = "User / Email"
+
+    def get_search_results(self, request, queryset, search_term):
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+        if search_term:
+            try:
+                amount_val = float(search_term)
+                queryset |= self.model.objects.filter(amount=amount_val)
+            except ValueError:
+                pass
+        return queryset, use_distinct
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions
+
+    def delete_selected_contributions(self, request, queryset):
+        count = queryset.count()
+        queryset.delete()
+        self.message_user(request, f"Successfully deleted {count} support contributions.", level="success")
+    delete_selected_contributions.short_description = "Delete Selected Contributions"
+
+    def export_selected_to_csv(self, request, queryset):
+        month_year = timezone.now().strftime("%B_%Y").lower()
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename=support_contributions_{month_year}.csv'
+        
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'Email', 'Amount', 'Platform', 'Date Created'])
+        
+        for obj in queryset:
+            email = obj.user.email if obj.user else "Anonymous"
+            writer.writerow([obj.id, email, obj.amount, obj.platform, obj.created_at.strftime('%Y-%m-%d %H:%M:%S')])
+            
+        return response
+    export_selected_to_csv.short_description = "Export Selected Contributions to CSV"
+
+    def export_all_to_csv(self, request, queryset):
+        cl = self.get_changelist_instance(request)
+        full_queryset = cl.get_queryset(request)
+        
+        month_year = timezone.now().strftime("%B_%Y").lower()
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename=support_contributions_{month_year}.csv'
+        
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'Email', 'Amount', 'Platform', 'Date Created'])
+        
+        for obj in full_queryset:
+            email = obj.user.email if obj.user else "Anonymous"
+            writer.writerow([obj.id, email, obj.amount, obj.platform, obj.created_at.strftime('%Y-%m-%d %H:%M:%S')])
+            
+        return response
+    export_all_to_csv.short_description = "Export All Contributions to CSV"
 
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}

@@ -1,0 +1,26 @@
+{% load i18n %}
+<h3>{% blocktranslate with filter_title=title %} By {{ filter_title }} {% endblocktranslate %}</h3>
+<ul>
+{% for choice in choices %}
+    <li{% if choice.selected %} class="selected"{% endif %}>
+    <a href="{{ choice.query_string|safe }}" title="{{ choice.display }}">{{ choice.display }}</a></li>
+{% endfor %}
+</ul>
+
+<div style="padding: 10px 15px; border-top: 1px solid var(--border-color, #eee);">
+    <form method="get" action="">
+        {% for param in spec.preserved_params %}
+            <input type="hidden" name="{{ param.key }}" value="{{ param.value }}">
+        {% endfor %}
+        <div style="margin-bottom: 8px;">
+            <label style="display: block; font-size: 11px; margin-bottom: 3px; color: var(--body-quiet-color, #666); font-weight: bold;">Start Date:</label>
+            <input type="date" name="date_created_start" value="{{ spec.start_value }}" style="width: 100%; padding: 4px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; background: var(--body-bg, #fff); color: var(--body-fg, #333);">
+        </div>
+        <div style="margin-bottom: 8px;">
+            <label style="display: block; font-size: 11px; margin-bottom: 3px; color: var(--body-quiet-color, #666); font-weight: bold;">End Date:</label>
+            <input type="date" name="date_created_end" value="{{ spec.end_value }}" style="width: 100%; padding: 4px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; background: var(--body-bg, #fff); color: var(--body-fg, #333);">
+        </div>
+        <input type="hidden" name="date_range" value="custom">
+        <button type="submit" style="width: 100%; padding: 6px; background: #206b45; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; transition: background 0.2s;">Apply Range</button>
+    </form>
+</div>
