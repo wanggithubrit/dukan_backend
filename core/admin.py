@@ -12,6 +12,7 @@ from .models import (
     ShopView,
     MerchantCredits,
     CreditTransaction,
+    Item,
 )
 
 
@@ -441,6 +442,34 @@ class CreditTransactionAdmin(admin.ModelAdmin):
         self.message_user(
             request,
             f"💰 Total Transactions: {total_cnt} | Net Transaction Amount: {total_amt} Credits",
+            level="info"
+        )
+        return super().changelist_view(request, extra_context=extra_context)
+
+
+from django.db.models import Min, Max
+
+@admin.register(Item)
+class ItemAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'shop', 'price', 'quantity', 'track_quantity', 'created_at')
+    search_fields = ('name', 'shop__name', 'shop__owner__email')
+    list_filter = ('track_quantity', 'created_at')
+    readonly_fields = ('created_at',)
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        qs = self.get_queryset(request)
+        stats = qs.aggregate(
+            min_price=Min('price'),
+            max_price=Max('price'),
+            total_items=Count('id')
+        )
+        min_pr = stats['min_price'] or 0.00
+        max_pr = stats['max_price'] or 0.00
+        total_its = stats['total_items'] or 0
+        self.message_user(
+            request,
+            f"🏷️ Total Uploaded Items: {total_its} | Minimum Item Price: ₹{min_pr:.2f} | Maximum Item Price: ₹{max_pr:.2f}",
             level="info"
         )
         return super().changelist_view(request, extra_context=extra_context)
