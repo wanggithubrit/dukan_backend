@@ -2529,16 +2529,7 @@ def delete_account(request):
 def debug_error(request):
     import traceback
     try:
-        from core.models import Shop, AppRelease, SupportContribution
-        shops = list(Shop.objects.all())
-        app_releases = list(AppRelease.objects.all())
-        support_cnt = SupportContribution.objects.count()
-        return Response({
-            "status": "ok",
-            "shops_count": len(shops),
-            "app_releases_count": len(app_releases),
-            "support_cnt": support_cnt
-        })
+        return get_nearby_shops(request)
     except Exception as e:
         return Response({
             "error": str(e),
