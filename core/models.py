@@ -53,6 +53,9 @@ class Shop(models.Model):
     opening_time = models.TimeField(null=True, blank=True)
     closing_time = models.TimeField(null=True, blank=True)
 
+    last_auto_open = models.DateTimeField(null=True, blank=True)
+    last_auto_close = models.DateTimeField(null=True, blank=True)
+
     auto_notify = models.BooleanField(default=True)
     auto_reminder_enabled = models.BooleanField(default=True)
 
@@ -75,6 +78,51 @@ class Shop(models.Model):
 
     def is_pro_active(self):
         return self.plan == 'pro' and self.plan_expiry and self.plan_expiry > timezone.now()
+
+    def sync_status(self):
+        if not self.auto_reminder_enabled:
+            return self.is_open
+        if not self.opening_time or not self.closing_time:
+            return self.is_open
+
+        import pytz
+        from django.utils import timezone
+        from datetime import datetime, timedelta
+
+        tz = pytz.timezone('Asia/Kolkata')
+        local_now = timezone.now().astimezone(tz)
+        local_date = local_now.date()
+
+        def get_local_datetime(t):
+            dt = datetime.combine(local_date, t)
+            return tz.localize(dt)
+
+        local_open = get_local_datetime(self.opening_time)
+        if local_open > local_now:
+            most_recent_open = local_open - timedelta(days=1)
+        else:
+            most_recent_open = local_open
+
+        local_close = get_local_datetime(self.closing_time)
+        if local_close > local_now:
+            most_recent_close = local_close - timedelta(days=1)
+        else:
+            most_recent_close = local_close
+
+        if most_recent_open > most_recent_close:
+            if not self.last_auto_open or self.last_auto_open < most_recent_open:
+                self.is_open = True
+                self.last_auto_open = local_now
+                self.save(update_fields=['is_open', 'last_auto_open'])
+                print(f"[AutoSync] Automated state update: {self.name} is now Open (Local Time: {local_now.time()})")
+        else:
+            if not self.last_auto_close or self.last_auto_close < most_recent_close:
+                self.is_open = False
+                self.last_auto_close = local_now
+                self.save(update_fields=['is_open', 'last_auto_close'])
+                print(f"[AutoSync] Automated state update: {self.name} is now Closed (Local Time: {local_now.time()})")
+
+        return self.is_open
 
     def check_and_update_plan(self):
         if self.plan == 'pro' and self.plan_expiry and self.plan_expiry <= timezone.now():
@@ -193,6 +241,9 @@ class Profile(models.Model):
         blank=True,
         related_name='referred_users_profile'
     )
+
+    app_version_code = models.IntegerField(null=True, blank=True)
+    app_version_name = models.CharField(max_length=20, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.referral_code:
@@ -434,3 +485,73 @@ class ActiveUser(models.Model):
         unique_together = ('user', 'date')
         verbose_name = "Active User"
         verbose_name_plural = "Active Users"
+
+
+# ==============================
+# 💳 SUBSCRIPTIONS & PURCHASES
+# ==============================
+
+class ProPurchase(models.Model):
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='pro_purchases')
+    razorpay_order_id = models.CharField(max_length=100)
+    razorpay_payment_id = models.CharField(max_length=100)
+    razorpay_signature = models.CharField(max_length=200, blank=True, null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=59.00)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Pro Purchase"
+        verbose_name_plural = "Pro Purchases"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.shop.name} - Pro Purchase ({self.razorpay_payment_id})"
+
+
+# ==============================
+# 🚀 APP RELEASES & UPDATES
+# ==============================
+
+class AppRelease(models.Model):
+    version_code = models.IntegerField(unique=True)
+    version_name = models.CharField(max_length=50)
+    release_notes = models.TextField(blank=True)
+    is_mandatory = models.BooleanField(default=False)
+    notify_users = models.BooleanField(default=False, help_text="Set to True to trigger the update prompt in the app.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "App Release"
+        verbose_name_plural = "App Releases"
+        ordering = ['-version_code']
+
+    def __str__(self):
+        return f"{self.version_name} ({self.version_code})"
+
+
+# ==============================
+# ❤️ SUPPORT MYDUKAN
+# ==============================
+
+class SupportContribution(models.Model):
+    PLATFORM_CHOICES = [
+        ('customer', 'Customer App'),
+        ('merchant', 'Merchant App'),
+        ('web', 'Web Platform'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='support_contributions')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    razorpay_order_id = models.CharField(max_length=100)
+    razorpay_payment_id = models.CharField(max_length=100)
+    razorpay_signature = models.CharField(max_length=200, blank=True, null=True)
+    platform = models.CharField(max_length=15, choices=PLATFORM_CHOICES, default='customer')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Support Contribution"
+        verbose_name_plural = "Support Contributions"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        user_str = self.user.username if self.user else "Anonymous"
+        return f"{user_str} - ₹{self.amount} ({self.get_platform_display()})"

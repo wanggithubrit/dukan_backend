@@ -23,3 +23,24 @@ class CoreConfig(AppConfig):
 
         except Exception:
             pass
+
+        # Start background thread to automatically sync shop open/close status
+        import os
+        import threading
+        import time
+
+        def auto_status_sync_worker():
+            print("[AutoSync] Starting shop status auto-sync background thread...")
+            while True:
+                try:
+                    from core.models import Shop
+                    for shop in Shop.objects.filter(auto_reminder_enabled=True):
+                        shop.sync_status()
+                except Exception as e:
+                    print("[AutoSync] Error in auto-sync worker:", e)
+                
+                time.sleep(15)
+
+        if os.environ.get('RUN_MAIN') == 'true' or not os.environ.get('RUN_MAIN'):
+            t = threading.Thread(target=auto_status_sync_worker, daemon=True)
+            t.start()

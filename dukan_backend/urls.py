@@ -16,13 +16,18 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
+from django.views.static import serve
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import HttpResponse
+
+def app_ads_view(request):
+    return HttpResponse("google.com, pub-9676497994699972, DIRECT, f08c47fec0942fa0", content_type="text/plain")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("app-ads.txt", app_ads_view),
     path('api/', include('core.urls')),
+    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

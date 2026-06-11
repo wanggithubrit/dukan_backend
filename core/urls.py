@@ -47,11 +47,12 @@ from .views import (
     ad_complete,
     report_action,
     admin_metrics,
+    delete_account,
 )
 
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import merchant_dashboard
+from .views import merchant_dashboard, check_app_update, notify_item_customers, create_support_order, verify_support_payment
 from rest_framework_simplejwt.views import TokenRefreshView
 print("CORE URLS LOADED ✅")
 
@@ -126,6 +127,11 @@ path(
     path('credits/ad-complete/', ad_complete),
     path('credits/report-action/', report_action),
     path('admin/metrics/', admin_metrics),
+    path('app-update/check/', check_app_update),
+    path('item/<int:item_id>/notify/', notify_item_customers),
+    path('support/create-order/', create_support_order),
+    path('support/verify-payment/', verify_support_payment),
+    path('auth/delete/', delete_account),
     ]
 
 

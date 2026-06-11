@@ -52,7 +52,7 @@ from rest_framework.decorators import parser_classes
 
 
 
-from .models import Shop,Favorite, Profile,ShopBanner, Notification,ShopMedia,FeaturedBanner
+from .models import Shop,Favorite, Profile,ShopBanner, Notification,ShopMedia,FeaturedBanner, AppRelease, ProPurchase, SupportContribution
 from .serializers import ShopSerializer, ShopBannerSerializer,ShopMediaSerializer, ItemSerializer,FeaturedBannerSerializer
 import math
 
@@ -1091,6 +1091,15 @@ def create_item(request):
     )
 
     try:
+        notify_favorite_users(
+            shop,
+            "🛍️ New Item Uploaded",
+            f"{shop.name} just added a new product: {request.data.get('name')}!"
+        )
+    except Exception as e:
+        print("Notification error in create_item:", e)
+
+    try:
         award_merchant_credits(user, 0.5, 'reward', "Add New Product")
     except Exception as e:
         print("Credit reward error in create_item:", e)
@@ -1722,8 +1731,8 @@ def send_otp(request):
 # =========================
 @api_view(['POST'])
 def verify_otp(request):
-    email = request.data.get('email')
-    otp = request.data.get('otp')
+    email = request.data.get('email', '').strip().lower()
+    otp = request.data.get('otp', '').strip()
 
     record = OTP.objects.filter(email=email, otp=otp).last()
 
@@ -1734,7 +1743,7 @@ def verify_otp(request):
     record.save()
 
     try:
-        user = User.objects.filter(email=email).first()
+        user = User.objects.filter(email__iexact=email).first()
         if user:
             # Check if Verify Email reward is already given
             if not CreditTransaction.objects.filter(merchant=user, description='Verify Email').exists():
@@ -1750,15 +1759,15 @@ def verify_otp(request):
 # =========================
 @api_view(['POST'])
 def reset_password(request):
-    email = request.data.get('email')
-    password = request.data.get('password')
+    email = request.data.get('email', '').strip().lower()
+    password = request.data.get('password', '').strip()
 
     record = OTP.objects.filter(email=email, is_verified=True).last()
 
     if not record:
         return Response({"error": "OTP verification required"}, status=403)
 
-    user = User.objects.filter(email=email).first()
+    user = User.objects.filter(email__iexact=email).first()
     if not user:
         return Response({"error": "User not found"}, status=404)
 
@@ -1918,6 +1927,18 @@ def verify_payment(request):
         shop = Shop.objects.get(owner=request.user)
         shop.activate_pro()
 
+        # Log Pro purchase
+        try:
+            ProPurchase.objects.create(
+                shop=shop,
+                razorpay_order_id=data['order_id'],
+                razorpay_payment_id=data['payment_id'],
+                razorpay_signature=data.get('signature'),
+                amount=59.00
+            )
+        except Exception as pe:
+            print("Failed to log Pro purchase:", pe)
+
         return Response({"status": "success"})
 
     except Exception as e:
@@ -1996,7 +2017,7 @@ def ondc_search(request):
             "id": f"provider_shop_{s.id}",
             "descriptor": {
                 "name": s.name,
-                "short_desc": s.description or "Local retail shop indexed on MyDukan ONDC gateway.",
+                "short_desc": s.description or "Local retail shop indexed on mydukan ONDC gateway.",
                 "images": [s.image.url] if s.image else []
             },
             "categories": [
@@ -2041,7 +2062,7 @@ def ondc_search(request):
         "message": {
             "catalog": {
                 "bpp/descriptor": {
-                    "name": "MyDukan Network Gateway"
+                    "name": "mydukan Network Gateway"
                 },
                 "bpp/providers": catalog_providers
             }
@@ -2262,14 +2283,14 @@ def ad_complete(request):
         
     award_merchant_credits(
         user,
-        1.0,
+        0.5,
         'ad_reward',
         f"Watched Rewarded Ad ({ad_id})"
     )
     
     credits_obj = MerchantCredits.objects.get(merchant=user)
     return Response({
-        "message": "Congratulations! You earned 1 Credit.",
+        "message": "Congratulations! You earned 0.5 Credits.",
         "available_credits": credits_obj.available_credits
     })
 
@@ -2289,7 +2310,7 @@ def report_action(request):
         shop.save()
         success, msg = award_merchant_credits(
             user,
-            0.5,
+            0.2,
             'reward',
             "Opened Shop Status Daily Action"
         )
@@ -2298,7 +2319,7 @@ def report_action(request):
         shop.save()
         success, msg = award_merchant_credits(
             user,
-            0.5,
+            0.2,
             'reward',
             "Closed Shop Status Daily Action"
         )
@@ -2308,7 +2329,7 @@ def report_action(request):
     return Response({
         "message": "Shop status updated successfully!",
         "is_open": shop.is_open,
-        "reward_status": msg if not success else "+0.5 Credit rewarded"
+        "reward_status": msg if not success else "+0.2 Credit rewarded"
     })
 
 
@@ -2349,3 +2370,155 @@ def admin_metrics(request):
         "ors_calls_today": ors_calls_today,
         "active_users_today": active_users_today
     })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def check_app_update(request):
+    version_code = request.data.get('version_code')
+    version_name = request.data.get('version_name')
+    
+    # If authenticated, update the user's Profile with their current app version
+    if request.user and request.user.is_authenticated:
+        try:
+            profile = request.user.profile
+            if version_code is not None:
+                profile.app_version_code = int(version_code)
+            if version_name is not None:
+                profile.app_version_name = str(version_name)
+            profile.save(update_fields=['app_version_code', 'app_version_name'])
+        except Exception as e:
+            print("Failed to save user app version:", e)
+
+    latest_release = AppRelease.objects.order_by('-version_code').first()
+    if latest_release and version_code is not None:
+        try:
+            client_vc = int(version_code)
+            if latest_release.version_code > client_vc:
+                return Response({
+                    "update_available": True,
+                    "version_code": latest_release.version_code,
+                    "version_name": latest_release.version_name,
+                    "release_notes": latest_release.release_notes,
+                    "is_mandatory": latest_release.is_mandatory,
+                    "notify_users": latest_release.notify_users
+                })
+        except ValueError:
+            pass
+
+    return Response({"update_available": False})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def notify_item_customers(request, item_id):
+    user = request.user
+    shop = get_object_or_404(Shop, owner=user)
+    shop.check_and_update_plan()
+    
+    if not shop.is_pro_active():
+        return Response({"error": "pro_feature_only", "message": "Only Pro merchants can broadcast product notifications."}, status=403)
+        
+    item = get_object_or_404(Item, id=item_id, shop=shop)
+    
+    try:
+        notify_favorite_users(
+            shop,
+            f"🛍️ New Product: {item.name}",
+            f"{shop.name} just added a new item! Check out {item.name} for ₹{item.price or '0'}."
+        )
+        return Response({"status": "success", "message": "Customers notified!"})
+    except Exception as e:
+        print("Failed to notify customers about item:", e)
+        return Response({"error": "notification_failed", "message": str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def create_support_order(request):
+    try:
+        amount_rupees = float(request.data.get('amount', 50))
+    except (TypeError, ValueError):
+        amount_rupees = 50.0
+
+    if amount_rupees < 10.0:
+        return Response({"error": "invalid_amount", "message": "Minimum contribution is ₹10."}, status=400)
+
+    client = razorpay.Client(
+        auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+    )
+
+    # amount in paise
+    amount_paise = int(amount_rupees * 100)
+
+    order = client.order.create({
+        "amount": amount_paise,
+        "currency": "INR",
+        "payment_capture": 1
+    })
+
+    return Response({
+        "order_id": order["id"],
+        "amount": amount_paise,
+        "key": settings.RAZORPAY_KEY_ID
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_support_payment(request):
+    client = razorpay.Client(
+        auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+    )
+
+    data = request.data
+    params_dict = {
+        'razorpay_order_id': data['order_id'],
+        'razorpay_payment_id': data['payment_id'],
+        'razorpay_signature': data['signature']
+    }
+
+    try:
+        client.utility.verify_payment_signature(params_dict)
+
+        user = request.user if request.user and request.user.is_authenticated else None
+        amount = float(data.get('amount', 50))
+        platform = data.get('platform', 'customer')
+
+        # Log contribution
+        SupportContribution.objects.create(
+            user=user,
+            amount=amount,
+            razorpay_order_id=data['order_id'],
+            razorpay_payment_id=data['payment_id'],
+            razorpay_signature=data['signature'],
+            platform=platform
+        )
+
+        return Response({"status": "success"})
+
+    except Exception as e:
+        print("Support payment verification error:", e)
+        return Response({"status": "failed", "message": str(e)}, status=400)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def delete_account(request):
+    user = request.user
+    password = request.data.get('password')
+    
+    if not password:
+        return Response({"error": "Password is required to delete your account."}, status=400)
+        
+    if not user.check_password(password):
+        return Response({"error": "Incorrect password. Account deletion aborted."}, status=400)
+        
+    try:
+        # Delete associated shop if it exists to clean up files/banners
+        Shop.objects.filter(owner=user).delete()
+        user.delete()
+        return Response({"success": True, "message": "Account deleted successfully."})
+    except Exception as e:
+        print("Failed to delete account:", e)
+        return Response({"error": f"An error occurred while deleting your account: {str(e)}"}, status=500)

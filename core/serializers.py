@@ -6,6 +6,26 @@ from .models import (
     Notification, Item, FeaturedBanner, Feedback, Profile
 )
 
+# Helper function to normalize URL to absolute URI if relative
+def normalize_image_url(serializer, field):
+    if not field:
+        return None
+    url = field.url
+    if url.startswith("http://"):
+        # Only force HTTPS if not local development
+        if not any(local_ip in url for local_ip in ["127.0.0.1", "localhost", "10.14.104.206"]):
+            url = url.replace("http://", "https://")
+    elif url.startswith("/"):
+        request = serializer.context.get('request')
+        if request is not None:
+            abs_url = request.build_absolute_uri(url)
+            if not any(local_ip in abs_url for local_ip in ["127.0.0.1", "localhost", "10.14.104.206"]):
+                if abs_url.startswith("http://"):
+                    abs_url = abs_url.replace("http://", "https://")
+            return abs_url
+    return url
+
+
 # ==============================
 # 👤 USER (WITH PROFILE IMAGE)
 # ==============================
@@ -26,16 +46,12 @@ class ShopSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_image(self, obj):
-        if obj.image:
-            url = obj.image.url
+        return normalize_image_url(self, obj.image)
 
-            # ✅ Force HTTPS for Cloudinary / mobile apps
-            if url.startswith("http://"):
-                url = url.replace("http://", "https://")
+    def to_representation(self, instance):
+        instance.sync_status()
+        return super().to_representation(instance)
 
-            return url
-
-        return None
 
 # ==============================
 # 🏪 MINI SHOP
@@ -57,15 +73,7 @@ class ShopMediaSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_image(self, obj):
-        if obj.image:
-            url = obj.image.url
-
-            if url.startswith("http://"):
-                url = url.replace("http://", "https://")
-
-            return url
-
-        return None
+        return normalize_image_url(self, obj.image)
 
 
 # ==============================
@@ -96,40 +104,15 @@ class ItemSerializer(serializers.ModelSerializer):
         ]
 
     def get_image(self, obj):
-        if obj.image:
-            url = obj.image.url
-
-            if url.startswith("http://"):
-                url = url.replace("http://", "https://")
-
-            return url
-
-        return None
+        return normalize_image_url(self, obj.image)
 
     def get_image2(self, obj):
-        if obj.image2:
-            url = obj.image2.url
-
-            if url.startswith("http://"):
-                url = url.replace("http://", "https://")
-
-            return url
-
-        return None
+        return normalize_image_url(self, obj.image2)
 
     def get_image3(self, obj):
-        if obj.image3:
-            url = obj.image3.url
-
-            if url.startswith("http://"):
-                url = url.replace("http://", "https://")
-
-            return url
-
-        return None
+        return normalize_image_url(self, obj.image3)
 
     def get_quantity_status(self, obj):
-
         if not obj.shop.has_quantity_feature:
             return None
 
@@ -176,15 +159,7 @@ class FeaturedBannerSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_image(self, obj):
-        if obj.image:
-            url = obj.image.url
-
-            if url.startswith("http://"):
-                url = url.replace("http://", "https://")
-
-            return url
-
-        return None
+        return normalize_image_url(self, obj.image)
 
 
 # ==============================

@@ -1,0 +1,124 @@
+Watching for file changes with StatReloader
+Performing system checks...
+
+CORE URLS LOADED ✅
+System check identified no issues (0 silenced).
+June 10, 2026 - 09:19:38
+Django version 4.2.7, using settings 'dukan_backend.settings'
+Starting development server at http://0.0.0.0:8000/
+Quit the server with CONTROL-C.
+
+[10/Jun/2026 09:19:47] "GET /api/banners/featured/ HTTP/1.1" 200 1131
+Method Not Allowed: /api/app-update/check/
+[10/Jun/2026 09:19:58] "GET /api/app-update/check/ HTTP/1.1" 405 40
+/Users/npenwang/project_dukan/dukan_backend/core/views.py changed, reloading.
+Watching for file changes with StatReloader
+Performing system checks...
+
+CORE URLS LOADED ✅
+System check identified no issues (0 silenced).
+June 10, 2026 - 09:34:16
+Django version 4.2.7, using settings 'dukan_backend.settings'
+Starting development server at http://0.0.0.0:8000/
+Quit the server with CONTROL-C.
+
+/Users/npenwang/project_dukan/dukan_backend/core/views.py changed, reloading.
+Watching for file changes with StatReloader
+Performing system checks...
+
+CORE URLS LOADED ✅
+System check identified no issues (0 silenced).
+June 10, 2026 - 09:43:33
+Django version 4.2.7, using settings 'dukan_backend.settings'
+Starting development server at http://0.0.0.0:8000/
+Quit the server with CONTROL-C.
+
+/Users/npenwang/project_dukan/dukan_backend/core/views.py changed, reloading.
+Watching for file changes with StatReloader
+Performing system checks...
+
+CORE URLS LOADED ✅
+System check identified no issues (0 silenced).
+June 10, 2026 - 09:56:33
+Django version 4.2.7, using settings 'dukan_backend.settings'
+Starting development server at http://0.0.0.0:8000/
+Quit the server with CONTROL-C.
+
+/Users/npenwang/project_dukan/dukan_backend/dukan_backend/settings.py changed, reloading.
+Watching for file changes with StatReloader
+Performing system checks...
+
+CORE URLS LOADED ✅
+System check identified no issues (0 silenced).
+June 10, 2026 - 15:31:48
+Django version 4.2.7, using settings 'dukan_backend.settings'
+Starting development server at http://0.0.0.0:8000/
+Quit the server with CONTROL-C.
+
+/Users/npenwang/project_dukan/dukan_backend/core/views.py changed, reloading.
+Watching for file changes with StatReloader
+Performing system checks...
+
+CORE URLS LOADED ✅
+System check identified no issues (0 silenced).
+June 10, 2026 - 15:31:52
+Django version 4.2.7, using settings 'dukan_backend.settings'
+Starting development server at http://0.0.0.0:8000/
+Quit the server with CONTROL-C.
+
+/Users/npenwang/project_dukan/dukan_backend/core/models.py changed, reloading.
+Watching for file changes with StatReloader
+Performing system checks...
+
+CORE URLS LOADED ✅
+System check identified no issues (0 silenced).
+June 10, 2026 - 15:40:04
+Django version 4.2.7, using settings 'dukan_backend.settings'
+Starting development server at http://0.0.0.0:8000/
+Quit the server with CONTROL-C.
+
+/Users/npenwang/project_dukan/dukan_backend/core/serializers.py changed, reloading.
+Watching for file changes with StatReloader
+Performing system checks...
+
+CORE URLS LOADED ✅
+System check identified no issues (0 silenced).
+June 10, 2026 - 15:40:12
+Django version 4.2.7, using settings 'dukan_backend.settings'
+Starting development server at http://0.0.0.0:8000/
+Quit the server with CONTROL-C.
+
+/Users/npenwang/project_dukan/dukan_backend/core/views.py changed, reloading.
+Watching for file changes with StatReloader
+Performing system checks...
+
+CORE URLS LOADED ✅
+System check identified no issues (0 silenced).
+June 10, 2026 - 15:40:22
+Django version 4.2.7, using settings 'dukan_backend.settings'
+Starting development server at http://0.0.0.0:8000/
+Quit the server with CONTROL-C.
+
+/Users/npenwang/project_dukan/dukan_backend/core/views.py changed, reloading.
+Watching for file changes with StatReloader
+Performing system checks...
+
+CORE URLS LOADED ✅
+System check identified no issues (0 silenced).
+June 10, 2026 - 15:47:33
+Django version 4.2.7, using settings 'dukan_backend.settings'
+Starting development server at http://0.0.0.0:8000/
+Quit the server with CONTROL-C.
+
+/Users/npenwang/project_dukan/dukan_backend/core/apps.py changed, reloading.
+[AutoSync] Starting shop status auto-sync background thread...
+Watching for file changes with StatReloader
+Performing system checks...
+
+CORE URLS LOADED ✅
+System check identified no issues (0 silenced).
+June 10, 2026 - 19:03:52
+Django version 4.2.7, using settings 'dukan_backend.settings'
+Starting development server at http://0.0.0.0:8000/
+Quit the server with CONTROL-C.
+

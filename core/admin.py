@@ -114,6 +114,7 @@ except admin.sites.NotRegistered:
 class ShopAdmin(admin.ModelAdmin):
     list_display = (
         'name',
+        'merchant_email',
         'plan',
         'plan_expiry',
         'days_left',
@@ -124,7 +125,12 @@ class ShopAdmin(admin.ModelAdmin):
     )
 
     list_filter = ('plan', 'is_open')
-    search_fields = ('name',)
+    search_fields = ('name', 'owner__email', 'owner__username')
+
+    # ✅ MERCHANT EMAIL COLUMN
+    def merchant_email(self, obj):
+        return obj.owner.email if obj.owner and obj.owner.email else "-"
+    merchant_email.short_description = "Merchant Email"
 
     # ✅ STATUS COLUMN
     def plan_status(self, obj):
@@ -174,9 +180,9 @@ from .models import Profile, Referral
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'role', 'referral_code', 'referred_by_user', 'referred_by_code', 'reward_credits', 'referral_reward_claimed')
-    search_fields = ('user__username', 'user__email', 'referral_code')
-    list_filter = ('role', 'referral_reward_claimed')
+    list_display = ('user', 'role', 'referral_code', 'referred_by_user', 'referred_by_code', 'reward_credits', 'referral_reward_claimed', 'app_version_code', 'app_version_name')
+    search_fields = ('user__username', 'user__email', 'referral_code', 'app_version_name')
+    list_filter = ('role', 'referral_reward_claimed', 'app_version_code')
 
     def referred_by_user(self, obj):
         return obj.referred_by.username if obj.referred_by else "-"
@@ -194,3 +200,51 @@ class ReferralAdmin(admin.ModelAdmin):
     list_display = ('referrer', 'referred_user', 'created_at')
     search_fields = ('referrer__username', 'referred_user__username')
     list_filter = ('created_at',)
+
+
+from .models import ProPurchase, AppRelease
+
+@admin.register(ProPurchase)
+class ProPurchaseAdmin(admin.ModelAdmin):
+    list_display = ('id', 'shop', 'shop_owner_email', 'amount', 'razorpay_order_id', 'razorpay_payment_id', 'created_at')
+    search_fields = ('shop__name', 'shop__owner__username', 'shop__owner__email', 'razorpay_payment_id', 'razorpay_order_id')
+    list_filter = ('created_at',)
+    readonly_fields = ('created_at',)
+
+    def shop_owner_email(self, obj):
+        return obj.shop.owner.email if obj.shop and obj.shop.owner else "-"
+    shop_owner_email.short_description = "Owner Email"
+
+
+@admin.register(AppRelease)
+class AppReleaseAdmin(admin.ModelAdmin):
+    list_display = ('version_code', 'version_name', 'is_mandatory', 'notify_users', 'created_at')
+    list_filter = ('is_mandatory', 'notify_users', 'created_at')
+    search_fields = ('version_name', 'version_code')
+
+
+from .models import SupportContribution
+from django.db.models import Sum, Count
+
+@admin.register(SupportContribution)
+class SupportContributionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user_display', 'amount', 'platform', 'razorpay_order_id', 'razorpay_payment_id', 'created_at')
+    list_filter = ('platform', 'created_at')
+    search_fields = ('user__username', 'user__email', 'razorpay_payment_id', 'razorpay_order_id')
+    readonly_fields = ('created_at',)
+
+    def user_display(self, obj):
+        return obj.user.email if obj.user else "Anonymous / Guest"
+    user_display.short_description = "User / Email"
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        qs = self.get_queryset(request)
+        stats = qs.aggregate(
+            total_amount=Sum('amount'),
+            total_count=Count('id')
+        )
+        total_amt = stats['total_amount'] or 0.00
+        total_cnt = stats['total_count'] or 0
+        self.message_user(request, f"❤️ Total Contributions: ₹{total_amt} | Total Supporters: {total_cnt}", level="info")
+        return super().changelist_view(request, extra_context=extra_context)
