@@ -2529,7 +2529,7 @@ def delete_account(request):
 def debug_error(request):
     import traceback
     try:
-        return get_nearby_shops(request)
+        return get_nearby_shops(request._request)
     except Exception as e:
         return Response({
             "error": str(e),
