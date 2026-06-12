@@ -116,15 +116,8 @@ class Shop(models.Model):
                 self.save(update_fields=['is_open', 'last_auto_open'])
                 print(f"[AutoSync] Automated state update: {self.name} is now Open (Local Time: {local_now.time()})")
                 
-                # Notify merchant and customers
+                # Notify merchant
                 try:
-                    from core.views import notify_favorite_users
-                    # Notify favorite users (customers)
-                    notify_favorite_users(
-                        self,
-                        f"⏰ {self.name} is now Open",
-                        f"Great news! {self.name} is now open for orders."
-                    )
                     # Notify merchant (owner)
                     if self.owner:
                         Notification.objects.create(
@@ -143,15 +136,8 @@ class Shop(models.Model):
                 self.save(update_fields=['is_open', 'last_auto_close'])
                 print(f"[AutoSync] Automated state update: {self.name} is now Closed (Local Time: {local_now.time()})")
                 
-                # Notify merchant and customers
+                # Notify merchant
                 try:
-                    from core.views import notify_favorite_users
-                    # Notify favorite users (customers)
-                    notify_favorite_users(
-                        self,
-                        f"⏰ {self.name} is now Closed",
-                        f"{self.name} is now closed. You can view their products and order when they open next."
-                    )
                     # Notify merchant (owner)
                     if self.owner:
                         Notification.objects.create(
