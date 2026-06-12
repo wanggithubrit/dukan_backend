@@ -115,12 +115,54 @@ class Shop(models.Model):
                 self.last_auto_open = local_now
                 self.save(update_fields=['is_open', 'last_auto_open'])
                 print(f"[AutoSync] Automated state update: {self.name} is now Open (Local Time: {local_now.time()})")
+                
+                # Notify merchant and customers
+                try:
+                    from core.views import notify_favorite_users
+                    # Notify favorite users (customers)
+                    notify_favorite_users(
+                        self,
+                        f"⏰ {self.name} is now Open",
+                        f"Great news! {self.name} is now open for orders."
+                    )
+                    # Notify merchant (owner)
+                    if self.owner:
+                        Notification.objects.create(
+                            user=self.owner,
+                            shop=self,
+                            title="⏰ Shop Opened Automatically",
+                            message=f"Your shop '{self.name}' has been automatically opened according to your scheduled business hours.",
+                            type='general'
+                        )
+                except Exception as ex:
+                    print("[AutoSync] Error sending open notifications:", ex)
         else:
             if not self.last_auto_close or self.last_auto_close < most_recent_close:
                 self.is_open = False
                 self.last_auto_close = local_now
                 self.save(update_fields=['is_open', 'last_auto_close'])
                 print(f"[AutoSync] Automated state update: {self.name} is now Closed (Local Time: {local_now.time()})")
+                
+                # Notify merchant and customers
+                try:
+                    from core.views import notify_favorite_users
+                    # Notify favorite users (customers)
+                    notify_favorite_users(
+                        self,
+                        f"⏰ {self.name} is now Closed",
+                        f"{self.name} is now closed. You can view their products and order when they open next."
+                    )
+                    # Notify merchant (owner)
+                    if self.owner:
+                        Notification.objects.create(
+                            user=self.owner,
+                            shop=self,
+                            title="⏰ Shop Closed Automatically",
+                            message=f"Your shop '{self.name}' has been automatically closed according to your scheduled business hours.",
+                            type='general'
+                        )
+                except Exception as ex:
+                    print("[AutoSync] Error sending close notifications:", ex)
 
         return self.is_open
 
