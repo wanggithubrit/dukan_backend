@@ -74,6 +74,7 @@ class FeaturedBannerAdmin(admin.ModelAdmin):
                 'subtitle',
                 'small_text',
                 'image',
+                'video',
                 'banner_type',
                 'background_color',
                 'link',
