@@ -37,7 +37,7 @@ class Shop(models.Model):
     name = models.CharField(max_length=100)
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
     has_quantity_feature = models.BooleanField(default=False)
-    phone = models.CharField(max_length=15)
+    phone = models.CharField(max_length=15, blank=True, null=True)
     whatsapp_number = models.CharField(max_length=15, blank=True, null=True)
     address = models.TextField(blank=True)
     description = models.TextField(blank=True, null=True)

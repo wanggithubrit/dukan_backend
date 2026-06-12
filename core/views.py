@@ -1102,14 +1102,16 @@ def create_item(request):
         quantity=quantity,
     )
 
-    try:
-        notify_favorite_users(
-            shop,
-            "🛍️ New Item Uploaded",
-            f"{shop.name} just added a new product: {request.data.get('name')}!"
-        )
-    except Exception as e:
-        print("Notification error in create_item:", e)
+    notify_customers = str(request.data.get('notify_customers', 'false')).lower() == 'true'
+    if is_pro and notify_customers:
+        try:
+            notify_favorite_users(
+                shop,
+                "🛍️ New Item Uploaded",
+                f"{shop.name} just added a new product: {request.data.get('name')}!"
+            )
+        except Exception as e:
+            print("Notification error in create_item:", e)
 
     try:
         award_merchant_credits(user, 0.5, 'reward', "Add New Product")

@@ -1,6 +1,6 @@
 from django.test import TestCase
 from django.utils import timezone
-from datetime import time
+from datetime import time, timezone as dt_timezone
 from unittest.mock import patch
 from core.models import Shop
 
@@ -27,21 +27,21 @@ class ShopStatusSyncTestCase(TestCase):
         # Test case: Local 08:00 IST -> UTC 02:30:00 (closed)
         mock_now.return_value = timezone.make_aware(
             timezone.datetime(2026, 6, 10, 2, 30, 0),
-            timezone.utc
+            dt_timezone.utc
         )
         self.assertFalse(self.shop_day.sync_status())
 
         # Test case: Local 09:00 IST -> UTC 03:30:00 (open)
         mock_now.return_value = timezone.make_aware(
             timezone.datetime(2026, 6, 10, 3, 30, 0),
-            timezone.utc
+            dt_timezone.utc
         )
         self.assertTrue(self.shop_day.sync_status())
 
         # Test case: Local 12:00 IST -> UTC 06:30:00 (open)
         mock_now.return_value = timezone.make_aware(
             timezone.datetime(2026, 6, 10, 6, 30, 0),
-            timezone.utc
+            dt_timezone.utc
         )
         self.assertTrue(self.shop_day.sync_status())
 
@@ -54,7 +54,7 @@ class ShopStatusSyncTestCase(TestCase):
         # Test case: Local 18:00 IST -> UTC 12:30:00 (closed)
         mock_now.return_value = timezone.make_aware(
             timezone.datetime(2026, 6, 10, 12, 30, 0),
-            timezone.utc
+            dt_timezone.utc
         )
         self.assertFalse(self.shop_day.sync_status())
 
@@ -69,14 +69,14 @@ class ShopStatusSyncTestCase(TestCase):
         # Test case: Local 21:00 IST -> UTC 15:30:00 (closed)
         mock_now.return_value = timezone.make_aware(
             timezone.datetime(2026, 6, 10, 15, 30, 0),
-            timezone.utc
+            dt_timezone.utc
         )
         self.assertFalse(self.shop_night.sync_status())
 
         # Test case: Local 22:00 IST -> UTC 16:30:00 (open)
         mock_now.return_value = timezone.make_aware(
             timezone.datetime(2026, 6, 10, 16, 30, 0),
-            timezone.utc
+            dt_timezone.utc
         )
         self.assertTrue(self.shop_night.sync_status())
 
@@ -88,13 +88,13 @@ class ShopStatusSyncTestCase(TestCase):
         # Test case: Local 02:00 (next day) IST -> UTC 20:30:00 (stays closed because transition already happened at 22:00)
         mock_now.return_value = timezone.make_aware(
             timezone.datetime(2026, 6, 10, 20, 30, 0),
-            timezone.utc
+            dt_timezone.utc
         )
         self.assertFalse(self.shop_night.sync_status())
 
         # Test case: Local 06:00 (next day) IST -> UTC 00:30:00 (closed)
         mock_now.return_value = timezone.make_aware(
             timezone.datetime(2026, 6, 11, 0, 30, 0),
-            timezone.utc
+            dt_timezone.utc
         )
         self.assertFalse(self.shop_night.sync_status())
