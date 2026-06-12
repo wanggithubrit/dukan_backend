@@ -153,6 +153,7 @@ class NotificationSerializer(serializers.ModelSerializer):
 # ==============================
 class FeaturedBannerSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
+    video = serializers.SerializerMethodField()
 
     class Meta:
         model = FeaturedBanner
@@ -160,6 +161,9 @@ class FeaturedBannerSerializer(serializers.ModelSerializer):
 
     def get_image(self, obj):
         return normalize_image_url(self, obj.image)
+
+    def get_video(self, obj):
+        return normalize_image_url(self, obj.video)
 
 
 # ==============================

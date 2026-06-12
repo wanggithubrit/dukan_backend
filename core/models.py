@@ -337,6 +337,13 @@ class FeaturedBanner(models.Model):
         null=True
     )
 
+    video = CloudinaryField(
+        "video",
+        resource_type="video",
+        blank=True,
+        null=True
+    )
+
     banner_type = models.CharField(
         max_length=20,
         default='image'
