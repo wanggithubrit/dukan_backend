@@ -331,8 +331,8 @@ class FeaturedBanner(models.Model):
     title = models.CharField(max_length=200, blank=True)
     subtitle = models.CharField(max_length=300, blank=True)
 
-    image = models.ImageField(
-        upload_to='featured_banners/',
+    image = CloudinaryField(
+        "image",
         blank=True,
         null=True
     )
