@@ -333,13 +333,14 @@ class FeaturedBanner(models.Model):
 
     image = CloudinaryField(
         "image",
+        resource_type="auto",
         blank=True,
         null=True
     )
 
     video = CloudinaryField(
         "video",
-        resource_type="video",
+        resource_type="auto",
         blank=True,
         null=True
     )
