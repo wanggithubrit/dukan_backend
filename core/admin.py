@@ -5,6 +5,7 @@ from django.utils import timezone
 from .models import (
     Shop,
     ShopMedia,
+    ShopBanner,
     Favorite,
     FeaturedBanner,
     Feedback,
@@ -13,6 +14,7 @@ from .models import (
     MerchantCredits,
     CreditTransaction,
     Item,
+    Order,
 )
 
 
@@ -21,6 +23,7 @@ from .models import (
 # ─────────────────────────────
 admin.site.register(Favorite)
 admin.site.register(ShopMedia)
+admin.site.register(ShopBanner)
 admin.site.register(Feedback)
 admin.site.register(AppSettings)
 admin.site.register(ShopView)
@@ -74,7 +77,6 @@ class FeaturedBannerAdmin(admin.ModelAdmin):
                 'subtitle',
                 'small_text',
                 'image',
-                'video',
                 'banner_type',
                 'background_color',
                 'link',
@@ -134,22 +136,22 @@ class ShopAdmin(admin.ModelAdmin):
 
     # ✅ STATUS COLUMN
     def plan_status(self, obj):
-        if obj.plan != 'pro':
+        if obj.plan == 'free':
             return "Free"
 
         if not obj.plan_expiry:
             return "No Expiry"
 
         if obj.plan_expiry < timezone.now():
-            return "❌ Expired"
+            return f"❌ Expired ({obj.plan.replace('_', ' ').title()})"
 
-        return "✅ Active"
+        return f"✅ Active ({obj.plan.replace('_', ' ').title()})"
 
     plan_status.short_description = "Status"
 
     # ✅ DAYS LEFT COLUMN
     def days_left(self, obj):
-        if obj.plan != 'pro' or not obj.plan_expiry:
+        if obj.plan == 'free' or not obj.plan_expiry:
             return "-"
 
         diff = obj.plan_expiry - timezone.now()
@@ -471,6 +473,39 @@ class ItemAdmin(admin.ModelAdmin):
         self.message_user(
             request,
             f"🏷️ Total Uploaded Items: {total_its} | Minimum Item Price: ₹{min_pr:.2f} | Maximum Item Price: ₹{max_pr:.2f}",
+            level="info"
+        )
+        return super().changelist_view(request, extra_context=extra_context)
+
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ('id', 'shop', 'customer_name', 'customer_phone', 'product_name', 'quantity', 'status', 'created_at')
+    search_fields = ('customer_name', 'customer_phone', 'product_name', 'shop__name')
+    list_filter = ('status', 'created_at')
+    readonly_fields = ('created_at', 'updated_at')
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        qs = self.get_queryset(request)
+        
+        total = qs.count()
+        pending = qs.filter(status='pending').count()
+        accepted = qs.filter(status='accepted').count()
+        completed = qs.filter(status='completed').count()
+        
+        from core.models import Shop
+        pro_count = Shop.objects.filter(plan='pro').count()
+        pro_plus_count = Shop.objects.filter(plan='pro_plus').count()
+        
+        pro_revenue = pro_count * 59.00
+        pro_plus_revenue = pro_plus_count * 120.00
+        total_revenue = pro_revenue + pro_plus_revenue
+        
+        self.message_user(
+            request,
+            f"📊 Order Stats: Total: {total} | Pending: {pending} | Accepted: {accepted} | Completed: {completed} "
+            f"💰 Subscription Revenue: Pro Users: {pro_count} (₹{pro_revenue:.2f}) | Pro Plus Users: {pro_plus_count} (₹{pro_plus_revenue:.2f}) | Total Monthly MRR: ₹{total_revenue:.2f}",
             level="info"
         )
         return super().changelist_view(request, extra_context=extra_context)

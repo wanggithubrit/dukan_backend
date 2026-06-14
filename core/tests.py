@@ -98,3 +98,67 @@ class ShopStatusSyncTestCase(TestCase):
             dt_timezone.utc
         )
         self.assertFalse(self.shop_night.sync_status())
+
+
+class ProPlusTestCase(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from core.models import Shop, Item
+        
+        self.user = User.objects.create_user(username="merchant", password="password")
+        self.shop = Shop.objects.create(
+            name="Super Shop",
+            owner=self.user,
+            plan="pro_plus",
+            plan_expiry=timezone.now() + timezone.timedelta(days=10)
+        )
+        self.item = Item.objects.create(
+            shop=self.shop,
+            name="Pro Product",
+            price=99.99
+        )
+
+    def test_item_limits_by_tier(self):
+        self.assertEqual(self.shop.get_item_limit(), 500)
+        
+        # Test custom limit override
+        self.shop.item_limit = 750
+        self.shop.save()
+        self.assertEqual(self.shop.get_item_limit(), 750)
+        
+        # Revert plan
+        self.shop.item_limit = None
+        self.shop.plan = 'free'
+        self.shop.save()
+        self.assertEqual(self.shop.get_item_limit(), 10)
+
+    def test_submit_order_view(self):
+        from django.urls import reverse
+        from core.models import Order
+        
+        # Test submitting a valid order
+        url = "/api/orders/"
+        payload = {
+            "shop_id": self.shop.id,
+            "item_id": self.item.id,
+            "quantity": 2,
+            "customer_name": "John Doe",
+            "customer_phone": "1234567890",
+            "delivery_address": "123 Main St",
+            "notes": "Please deliver after 5 PM"
+        }
+        
+        response = self.client.post(url, payload, content_type="application/json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Order.objects.count(), 1)
+        
+        order = Order.objects.first()
+        self.assertEqual(order.customer_name, "John Doe")
+        self.assertEqual(order.quantity, 2)
+        
+        # Test submitting order to a free shop (should fail)
+        self.shop.plan = "free"
+        self.shop.save()
+        response2 = self.client.post(url, payload, content_type="application/json")
+        self.assertEqual(response2.status_code, 403)
+

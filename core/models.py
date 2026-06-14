@@ -60,24 +60,49 @@ class Shop(models.Model):
     auto_reminder_enabled = models.BooleanField(default=True)
 
     plan = models.CharField(
-        max_length=10,
-        choices=[('free', 'Free'), ('pro', 'Pro')],
+        max_length=15,
+        choices=[('free', 'Free'), ('pro', 'Pro'), ('pro_plus', 'Pro Plus')],
         default='free'
     )
 
     plan_expiry = models.DateTimeField(null=True, blank=True)
 
-    def activate_pro(self):
+    # Delivery Settings (Pro Plus only)
+    delivery_available = models.BooleanField(default=False)
+    delivery_charge = models.FloatField(default=0.0)
+    delivery_area = models.TextField(blank=True, null=True)
+    estimated_delivery_time = models.CharField(max_length=100, blank=True, null=True)
+
+    # Custom Admin limit overrides
+    item_limit = models.IntegerField(null=True, blank=True)
+
+    def clean(self):
+        super().clean()
+        if self.plan in ['pro', 'pro_plus'] and not self.plan_expiry:
+            from django.core.exceptions import ValidationError
+            raise ValidationError({'plan_expiry': 'Plan expiry is mandatory for Pro and Pro Plus plans.'})
+
+    def get_item_limit(self):
+        if self.item_limit is not None:
+            return self.item_limit
+        if self.plan in ['pro', 'pro_plus']:
+            return 500
+        return 10
+
+    def activate_plan(self, plan_type):
         now = timezone.now()
-        if self.plan == 'pro' and self.plan_expiry and self.plan_expiry > now:
+        if self.plan == plan_type and self.plan_expiry and self.plan_expiry > now:
             self.plan_expiry += timedelta(days=30)
         else:
-            self.plan = 'pro'
+            self.plan = plan_type
             self.plan_expiry = now + timedelta(days=30)
         self.save(update_fields=['plan', 'plan_expiry'])
 
+    def activate_pro(self):
+        self.activate_plan('pro')
+
     def is_pro_active(self):
-        return self.plan == 'pro' and self.plan_expiry and self.plan_expiry > timezone.now()
+        return self.plan in ['pro', 'pro_plus'] and self.plan_expiry and self.plan_expiry > timezone.now()
 
     def sync_status(self):
         if not self.auto_reminder_enabled:
@@ -153,7 +178,7 @@ class Shop(models.Model):
         return self.is_open
 
     def check_and_update_plan(self):
-        if self.plan == 'pro' and self.plan_expiry and self.plan_expiry <= timezone.now():
+        if self.plan in ['pro', 'pro_plus'] and self.plan_expiry and self.plan_expiry <= timezone.now():
             self.plan = 'free'
             self.plan_expiry = None
             self.save(update_fields=['plan', 'plan_expiry'])
@@ -164,7 +189,7 @@ class Shop(models.Model):
         return max((self.plan_expiry - timezone.now()).days, 0)
 
     def save(self, *args, **kwargs):
-        if self.plan == 'pro' and self.plan_expiry and self.plan_expiry <= timezone.now():
+        if self.plan in ['pro', 'pro_plus'] and self.plan_expiry and self.plan_expiry <= timezone.now():
             self.plan = 'free'
             self.plan_expiry = None
         super().save(*args, **kwargs)
@@ -188,6 +213,7 @@ class ShopBanner(models.Model):
 
     # ✅ Cloudinary
     image = CloudinaryField("image", null=True, blank=True)
+    detail_image = CloudinaryField("detail_image", null=True, blank=True)
 
     title = models.CharField(max_length=100, blank=True)
     subtitle = models.CharField(max_length=150, blank=True)
@@ -310,6 +336,7 @@ class Item(models.Model):
     image = CloudinaryField("image")
     image2 = CloudinaryField("image2", blank=True, null=True)
     image3 = CloudinaryField("image3", blank=True, null=True)
+    image4 = CloudinaryField("image4", blank=True, null=True)
     name = models.CharField(max_length=100)
 
     description = models.TextField(
@@ -333,14 +360,6 @@ class FeaturedBanner(models.Model):
 
     image = CloudinaryField(
         "image",
-        resource_type="auto",
-        blank=True,
-        null=True
-    )
-
-    video = CloudinaryField(
-        "video",
-        resource_type="auto",
         blank=True,
         null=True
     )
@@ -593,3 +612,33 @@ class SupportContribution(models.Model):
     def __str__(self):
         user_str = self.user.username if self.user else "Anonymous"
         return f"{user_str} - ₹{self.amount} ({self.get_platform_display()})"
+
+
+# ==============================
+# 📦 CUSTOMER ORDER REQUEST
+# ==============================
+
+class Order(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+        ('completed', 'Completed'),
+    ]
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='orders')
+    item = models.ForeignKey('Item', on_delete=models.SET_NULL, null=True, blank=True)
+    product_name = models.CharField(max_length=200)
+    quantity = models.PositiveIntegerField(default=1)
+    customer_name = models.CharField(max_length=100)
+    customer_phone = models.CharField(max_length=15)
+    delivery_address = models.TextField(blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Order #{self.id} - {self.customer_name} ({self.status})"

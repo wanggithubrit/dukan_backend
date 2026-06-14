@@ -251,10 +251,10 @@ def get_nearby_shops(request):
         result.append(data)
 
     def sort_key(x):
-        is_pro = 0 if x.get('plan') == 'pro' else 1
+        plan_rank = 0 if x.get('plan') == 'pro_plus' else (1 if x.get('plan') == 'pro' else 2)
         dist = x.get('distance')
         dist_val = float(dist) if dist is not None else float('inf')
-        return (is_pro, dist_val, str(x.get('name') or '').lower())
+        return (plan_rank, dist_val, str(x.get('name') or '').lower())
 
     return Response(sorted(result, key=sort_key))
 
@@ -937,6 +937,7 @@ def upload_banner(request):
             return Response({'error': 'Maximum 3 offers allowed'}, status=403)
 
         image = request.FILES.get('image')
+        detail_image = request.FILES.get('detail_image')
         discount = str(request.data.get('discount', ''))[:30]
         template = request.data.get('template', 'green')
         title = request.data.get('title', '')
@@ -957,6 +958,7 @@ def upload_banner(request):
             shop=shop,
             banner_type=banner_type,
             image=image,
+            detail_image=detail_image,
             discount=discount,
             title=title,
             subtitle=subtitle,
@@ -1061,6 +1063,7 @@ def create_item(request):
     image = request.FILES.get('image')
     image2 = request.FILES.get('image2') if is_pro else None
     image3 = request.FILES.get('image3') if is_pro else None
+    image4 = request.FILES.get('image4') if is_pro else None
 
     if not image:
         return Response({'error': 'Image required'}, status=400)
@@ -1094,6 +1097,7 @@ def create_item(request):
         image=image,
         image2=image2,
         image3=image3,
+        image4=image4,
         name=request.data.get('name'),
         price=request.data.get('price'),
 
@@ -1168,6 +1172,23 @@ def update_item(request, item_id):
 
     if image:
         item.image = image
+
+    is_pro = shop.is_pro_active()
+    if is_pro:
+        if 'image2' in request.FILES:
+            item.image2 = request.FILES.get('image2')
+        elif 'image2' in request.data and request.data.get('image2') == '':
+            item.image2 = None
+
+        if 'image3' in request.FILES:
+            item.image3 = request.FILES.get('image3')
+        elif 'image3' in request.data and request.data.get('image3') == '':
+            item.image3 = None
+
+        if 'image4' in request.FILES:
+            item.image4 = request.FILES.get('image4')
+        elif 'image4' in request.data and request.data.get('image4') == '':
+            item.image4 = None
 
     # ─────────────────────────────
     # 🔒 QUANTITY FEATURE SECURITY
@@ -1818,7 +1839,11 @@ def create_payment_order(request):
         auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
     )
 
-    amount = 5900  # ₹59 = 5900 paise
+    plan = request.data.get('plan', 'pro')
+    if plan == 'pro_plus':
+        amount = 12000  # ₹120 = 12000 paise
+    else:
+        amount = 5900   # ₹59 = 5900 paise
 
     order = client.order.create({
         "amount": amount,
@@ -1840,12 +1865,19 @@ from django.utils import timezone
 def upgrade_plan(request):
     user = request.user
     shop = Shop.objects.get(owner=user)
+    
+    plan = request.data.get('plan', 'pro')
+    if plan not in ['pro', 'pro_plus']:
+        plan = 'pro'
 
-    shop.plan = 'pro'
+    shop.plan = plan
     shop.plan_expiry = timezone.now() + timedelta(days=30)
     shop.save()
 
-    return Response({"message": "Upgraded to Pro"})
+    return Response({
+        "message": f"Upgraded to {plan.replace('_', ' ').title()}",
+        "plan": plan
+    })
 
 
 from rest_framework.decorators import api_view
@@ -2239,6 +2271,8 @@ def credit_status(request):
     settings_obj = AppSettings.objects.first()
     free_limit_base = settings_obj.free_tier_limit if settings_obj else 20
     pro_limit_base = settings_obj.pro_tier_limit if settings_obj else 120
+    if shop and is_pro:
+        pro_limit_base = shop.get_item_limit()
     product_limit = free_limit_base + credits_obj.bought_limit_slots
     
     return Response({
@@ -2543,6 +2577,168 @@ def delete_account(request):
     except Exception as e:
         print("Failed to delete account:", e)
         return Response({"error": f"An error occurred while deleting your account: {str(e)}"}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def submit_order(request):
+    from .models import Shop, Item, Order, Notification
+    from .serializers import OrderSerializer
+
+    shop_id = request.data.get('shop_id')
+    item_id = request.data.get('item_id')
+    quantity = int(request.data.get('quantity', 1))
+    customer_name = request.data.get('customer_name')
+    customer_phone = request.data.get('customer_phone')
+    delivery_address = request.data.get('delivery_address', '')
+    notes = request.data.get('notes', '')
+
+    if not shop_id or not item_id or not customer_name or not customer_phone:
+        return Response({"error": "Missing required fields (shop_id, item_id, customer_name, customer_phone)"}, status=400)
+
+    try:
+        shop = Shop.objects.get(id=shop_id)
+    except Shop.DoesNotExist:
+        return Response({"error": "Shop not found"}, status=404)
+
+    try:
+        item = Item.objects.get(id=item_id, shop=shop)
+    except Item.DoesNotExist:
+        return Response({"error": "Item not found in this shop"}, status=404)
+
+    if shop.plan not in ['pro', 'pro_plus']:
+        return Response({"error": "Ordering is only available for Pro and Pro Plus subscription stores"}, status=403)
+
+    order = Order.objects.create(
+        shop=shop,
+        item=item,
+        product_name=item.name,
+        quantity=quantity,
+        customer_name=customer_name,
+        customer_phone=customer_phone,
+        delivery_address=delivery_address,
+        notes=notes,
+        status='pending'
+    )
+
+    Notification.objects.create(
+        user=shop.owner,
+        shop=shop,
+        title="New Order Request 📦",
+        message=f"Received a new order for {quantity}x {item.name} from {customer_name}.",
+        type="order"
+    )
+
+    serializer = OrderSerializer(order)
+    return Response(serializer.data, status=201)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_merchant_orders(request):
+    from .models import Shop, Order
+    from .serializers import OrderSerializer
+    from django.utils.timezone import now
+
+    try:
+        shop = Shop.objects.get(owner=request.user)
+    except Shop.DoesNotExist:
+        return Response({"error": "Shop not found"}, status=404)
+
+    orders = Order.objects.filter(shop=shop).order_by('-created_at')
+
+    total_orders = orders.count()
+    pending_orders = orders.filter(status='pending').count()
+    accepted_orders = orders.filter(status='accepted').count()
+    rejected_orders = orders.filter(status='rejected').count()
+    completed_orders = orders.filter(status='completed').count()
+
+    current_month = now().month
+    current_year = now().year
+    monthly_orders = orders.filter(created_at__month=current_month, created_at__year=current_year).count()
+
+    serializer = OrderSerializer(orders, many=True)
+
+    return Response({
+        "orders": serializer.data,
+        "stats": {
+            "total": total_orders,
+            "pending": pending_orders,
+            "accepted": accepted_orders,
+            "rejected": rejected_orders,
+            "completed": completed_orders,
+            "monthly": monthly_orders
+        }
+    })
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_order_status(request, order_id):
+    from .models import Shop, Order, Notification
+    from .serializers import OrderSerializer
+
+    try:
+        shop = Shop.objects.get(owner=request.user)
+    except Shop.DoesNotExist:
+        return Response({"error": "Shop not found"}, status=404)
+
+    try:
+        order = Order.objects.get(id=order_id, shop=shop)
+    except Order.DoesNotExist:
+        return Response({"error": "Order not found"}, status=404)
+
+    new_status = request.data.get('status')
+    if new_status not in ['accepted', 'rejected', 'completed']:
+        return Response({"error": "Invalid status value"}, status=400)
+
+    order.status = new_status
+    order.save()
+
+    status_emoji = "✅" if new_status == 'accepted' else ("❌" if new_status == 'rejected' else "🎉")
+    Notification.objects.create(
+        user=shop.owner,
+        shop=shop,
+        title=f"Order {new_status.title()} {status_emoji}",
+        message=f"Order #{order.id} for {order.customer_name} has been marked as {new_status}.",
+        type="order"
+    )
+
+    serializer = OrderSerializer(order)
+    return Response(serializer.data)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_delivery_settings(request):
+    from .models import Shop
+    from .serializers import ShopSerializer
+
+    try:
+        shop = Shop.objects.get(owner=request.user)
+    except Shop.DoesNotExist:
+        return Response({"error": "Shop not found"}, status=404)
+
+    if shop.plan not in ['pro', 'pro_plus']:
+        return Response({"error": "Delivery options are exclusive to Pro and Pro Plus subscription"}, status=403)
+
+    delivery_available = request.data.get('delivery_available')
+    delivery_charge = request.data.get('delivery_charge')
+    delivery_area = request.data.get('delivery_area')
+    estimated_delivery_time = request.data.get('estimated_delivery_time')
+
+    if delivery_available is not None:
+        shop.delivery_available = bool(delivery_available)
+    if delivery_charge is not None:
+        shop.delivery_charge = float(delivery_charge)
+    if delivery_area is not None:
+        shop.delivery_area = str(delivery_area)
+    if estimated_delivery_time is not None:
+        shop.estimated_delivery_time = str(estimated_delivery_time)
+
+    shop.save()
+    serializer = ShopSerializer(shop, context={'request': request})
+    return Response(serializer.data)
 
 
 @api_view(['GET'])

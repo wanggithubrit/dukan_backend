@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 
 from .models import (
     Shop, ShopMedia, ShopBanner,
-    Notification, Item, FeaturedBanner, Feedback, Profile
+    Notification, Item, FeaturedBanner, Feedback, Profile, Order
 )
 
 # Helper function to normalize URL to absolute URI if relative
@@ -83,6 +83,7 @@ class ItemSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
     image2 = serializers.SerializerMethodField()
     image3 = serializers.SerializerMethodField()
+    image4 = serializers.SerializerMethodField()
     quantity_status = serializers.SerializerMethodField()
     shop_has_quantity_feature = serializers.SerializerMethodField()
 
@@ -97,6 +98,7 @@ class ItemSerializer(serializers.ModelSerializer):
             'image',
             'image2',
             'image3',
+            'image4',
             'quantity',
             'track_quantity',
             'quantity_status',
@@ -111,6 +113,9 @@ class ItemSerializer(serializers.ModelSerializer):
 
     def get_image3(self, obj):
         return normalize_image_url(self, obj.image3)
+
+    def get_image4(self, obj):
+        return normalize_image_url(self, obj.image4)
 
     def get_quantity_status(self, obj):
         if not obj.shop.has_quantity_feature:
@@ -153,7 +158,6 @@ class NotificationSerializer(serializers.ModelSerializer):
 # ==============================
 class FeaturedBannerSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
-    video = serializers.SerializerMethodField()
 
     class Meta:
         model = FeaturedBanner
@@ -162,9 +166,6 @@ class FeaturedBannerSerializer(serializers.ModelSerializer):
     def get_image(self, obj):
         return normalize_image_url(self, obj.image)
 
-    def get_video(self, obj):
-        return normalize_image_url(self, obj.video)
-
 
 # ==============================
 # 💬 FEEDBACK
@@ -172,4 +173,13 @@ class FeaturedBannerSerializer(serializers.ModelSerializer):
 class FeedbackSerializer(serializers.ModelSerializer):
     class Meta:
         model = Feedback
+        fields = '__all__'
+
+
+# ==============================
+# 📦 ORDER SERIALIZER
+# ==============================
+class OrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
         fields = '__all__'
