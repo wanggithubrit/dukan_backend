@@ -2726,6 +2726,7 @@ def update_delivery_settings(request):
     delivery_charge = request.data.get('delivery_charge')
     delivery_area = request.data.get('delivery_area')
     estimated_delivery_time = request.data.get('estimated_delivery_time')
+    delivery_range = request.data.get('delivery_range')
 
     if delivery_available is not None:
         shop.delivery_available = bool(delivery_available)
@@ -2735,6 +2736,11 @@ def update_delivery_settings(request):
         shop.delivery_area = str(delivery_area)
     if estimated_delivery_time is not None:
         shop.estimated_delivery_time = str(estimated_delivery_time)
+    if delivery_range is not None:
+        try:
+            shop.delivery_range = int(delivery_range) if delivery_range != '' else None
+        except ValueError:
+            pass
 
     shop.save()
     serializer = ShopSerializer(shop, context={'request': request})

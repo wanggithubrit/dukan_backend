@@ -72,6 +72,7 @@ class Shop(models.Model):
     delivery_charge = models.FloatField(default=0.0)
     delivery_area = models.TextField(blank=True, null=True)
     estimated_delivery_time = models.CharField(max_length=100, blank=True, null=True)
+    delivery_range = models.IntegerField(default=10, null=True, blank=True)
 
     # Custom Admin limit overrides
     item_limit = models.IntegerField(null=True, blank=True)
@@ -189,7 +190,10 @@ class Shop(models.Model):
         return max((self.plan_expiry - timezone.now()).days, 0)
 
     def save(self, *args, **kwargs):
-        if self.plan in ['pro', 'pro_plus'] and self.plan_expiry and self.plan_expiry <= timezone.now():
+        if self.plan in ['pro', 'pro_plus'] and not self.plan_expiry:
+            from datetime import timedelta
+            self.plan_expiry = timezone.now() + timedelta(days=365)
+        elif self.plan in ['pro', 'pro_plus'] and self.plan_expiry and self.plan_expiry <= timezone.now():
             self.plan = 'free'
             self.plan_expiry = None
         super().save(*args, **kwargs)
