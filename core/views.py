@@ -60,6 +60,17 @@ import math
 # ==============================
 # 🔧 HELPERS
 # ==============================
+def is_demo_shop(shop):
+    if not shop:
+        return False
+    if "demo" in shop.name.lower():
+        return True
+    if shop.owner and ("demo" in shop.owner.username.lower() or "default_merchant" in shop.owner.username.lower()):
+        return True
+    if not shop.owner:
+        return True
+    return False
+
 def calculate_haversine(lat1, lon1, lat2, lon2):
     R = 6371
     dlat = math.radians(lat2 - lat1)
@@ -267,7 +278,7 @@ def get_nearby_shops(request):
 @permission_classes([AllowAny])
 def get_shop_detail(request, shop_id):
     shop = get_object_or_404(Shop, id=shop_id)
-    if shop.plan != 'pro_plus':
+    if is_demo_shop(shop) and shop.plan != 'pro_plus':
         shop.plan = 'pro_plus'
         shop.save()
 
@@ -543,7 +554,7 @@ def merchant_dashboard(request, user_id):
         handle_referral_upgrade(user)
 
         shop = get_object_or_404(Shop, owner=user)
-        if shop.plan != 'pro_plus':
+        if is_demo_shop(shop) and shop.plan != 'pro_plus':
             shop.plan = 'pro_plus'
             shop.save()
         profile, _ = Profile.objects.get_or_create(user=user)
@@ -2660,7 +2671,7 @@ def get_merchant_orders(request):
 
     try:
         shop = Shop.objects.get(owner=request.user)
-        if shop.plan != 'pro_plus':
+        if is_demo_shop(shop) and shop.plan != 'pro_plus':
             shop.plan = 'pro_plus'
             shop.save()
     except Shop.DoesNotExist:
