@@ -324,6 +324,10 @@ class Profile(models.Model):
     app_version_code = models.IntegerField(null=True, blank=True)
     app_version_name = models.CharField(max_length=20, null=True, blank=True)
 
+    name = models.CharField(max_length=100, blank=True, null=True)
+    phone = models.CharField(max_length=15, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+
     def save(self, *args, **kwargs):
         if not self.referral_code:
             code = generate_referral_code()

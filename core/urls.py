@@ -11,6 +11,7 @@ from .views import (
     get_shop_detail,
     submit_feedback,
     get_user,
+    update_profile,
     login,
     my_shop,
     signup,
@@ -80,6 +81,7 @@ urlpatterns = [
     path('auth/login/', login),
 
     path('user/<int:id>/', get_user),
+    path('profile/update/', update_profile),
 
     # urls.py
     # core/urls.py

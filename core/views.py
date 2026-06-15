@@ -861,7 +861,35 @@ def get_user(request, id):
         "email": user.email,
         "reward_credits": profile.reward_credits,
         "avatar": profile.avatar or "male_1",
-        "role": profile.role or "customer"
+        "role": profile.role or "customer",
+        "name": profile.name or "",
+        "phone": profile.phone or "",
+        "address": profile.address or ""
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_profile(request):
+    user = request.user
+    name = request.data.get('name')
+    phone = request.data.get('phone')
+    address = request.data.get('address')
+
+    profile, _ = Profile.objects.get_or_create(user=user)
+    if name is not None:
+        profile.name = name
+    if phone is not None:
+        profile.phone = phone
+    if address is not None:
+        profile.address = address
+    profile.save()
+
+    return Response({
+        'success': True,
+        'name': profile.name or "",
+        'phone': profile.phone or "",
+        'address': profile.address or ""
     })
 
 from .models import ShopView
