@@ -267,6 +267,9 @@ def get_nearby_shops(request):
 @permission_classes([AllowAny])
 def get_shop_detail(request, shop_id):
     shop = get_object_or_404(Shop, id=shop_id)
+    if shop.plan != 'pro_plus':
+        shop.plan = 'pro_plus'
+        shop.save()
 
     items = Item.objects.filter(shop=shop)
     banners = ShopBanner.objects.filter(shop=shop)
@@ -2654,6 +2657,9 @@ def get_merchant_orders(request):
 
     try:
         shop = Shop.objects.get(owner=request.user)
+        if shop.plan != 'pro_plus':
+            shop.plan = 'pro_plus'
+            shop.save()
     except Shop.DoesNotExist:
         return Response({"error": "Shop not found"}, status=404)
 
