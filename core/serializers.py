@@ -51,6 +51,7 @@ class ShopSerializer(serializers.ModelSerializer):
         return normalize_image_url(self, obj.image)
 
     def to_representation(self, instance):
+        instance.check_and_update_plan()
         instance.sync_status()
         return super().to_representation(instance)
 

@@ -104,7 +104,18 @@ class Shop(models.Model):
     def activate_pro(self):
         self.activate_plan('pro')
 
+    def is_demo(self):
+        if "demo" in self.name.lower():
+            return True
+        if self.owner and ("demo" in self.owner.username.lower() or "default_merchant" in self.owner.username.lower()):
+            return True
+        if not self.owner:
+            return True
+        return False
+
     def is_pro_active(self):
+        if self.is_demo():
+            return True
         return self.plan in ['pro', 'pro_plus'] and self.plan_expiry and self.plan_expiry > timezone.now()
 
     def sync_status(self):
@@ -181,6 +192,14 @@ class Shop(models.Model):
         return self.is_open
 
     def check_and_update_plan(self):
+        if self.is_demo():
+            if self.plan != 'pro_plus':
+                self.plan = 'pro_plus'
+                from datetime import timedelta
+                self.plan_expiry = timezone.now() + timedelta(days=365)
+                self.save(update_fields=['plan', 'plan_expiry'])
+            return
+
         if self.plan in ['pro', 'pro_plus'] and self.plan_expiry and self.plan_expiry <= timezone.now():
             self.plan = 'free'
             self.plan_expiry = None
