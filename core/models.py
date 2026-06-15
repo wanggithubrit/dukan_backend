@@ -193,7 +193,7 @@ class Shop(models.Model):
 
     def check_and_update_plan(self):
         if self.is_demo():
-            if self.plan != 'pro_plus':
+            if self.plan not in ['pro', 'pro_plus']:
                 self.plan = 'pro_plus'
                 from datetime import timedelta
                 self.plan_expiry = timezone.now() + timedelta(days=365)

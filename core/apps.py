@@ -24,6 +24,18 @@ class CoreConfig(AppConfig):
         except Exception:
             pass
 
+        try:
+            from core.models import Shop
+            from django.utils import timezone
+            from datetime import timedelta
+            # Ensure shop with ID 27 is on the 'pro' plan for testing the ⭐ Star badge and direct ordering flow
+            Shop.objects.filter(id=27).update(
+                plan='pro',
+                plan_expiry=timezone.now() + timedelta(days=365)
+            )
+        except Exception as ex:
+            print("[Startup] Error setting shop 27 to pro:", ex)
+
         # Start background thread to automatically sync shop open/close status
         import os
         import threading
