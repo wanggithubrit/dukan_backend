@@ -654,6 +654,7 @@ class Order(models.Model):
         ('rejected', 'Rejected'),
         ('completed', 'Completed'),
     ]
+    customer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='customer_orders')
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='orders')
     item = models.ForeignKey('Item', on_delete=models.SET_NULL, null=True, blank=True)
     product_name = models.CharField(max_length=200)

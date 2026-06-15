@@ -2679,6 +2679,7 @@ def submit_order(request):
         return Response({"error": "Ordering is only available for Pro and Pro Plus subscription stores"}, status=403)
 
     order = Order.objects.create(
+        customer=request.user if request.user and request.user.is_authenticated else None,
         shop=shop,
         item=item,
         product_name=item.name,
@@ -2840,3 +2841,22 @@ def debug_error(request):
             "error": str(e),
             "traceback": traceback.format_exc()
         }, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_customer_orders(request):
+    from django.db.models import Q
+    from .models import Order, Profile
+    from .serializers import OrderSerializer
+
+    user = request.user
+    profile = Profile.objects.filter(user=user).first()
+    
+    query = Q(customer=user)
+    if profile and profile.phone:
+        query |= Q(customer_phone=profile.phone)
+        
+    orders = Order.objects.filter(query).distinct().order_by('-created_at')
+    serializer = OrderSerializer(orders, many=True, context={'request': request})
+    return Response(serializer.data)

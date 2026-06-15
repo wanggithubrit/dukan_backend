@@ -193,6 +193,8 @@ class FeedbackSerializer(serializers.ModelSerializer):
 # ==============================
 class OrderSerializer(serializers.ModelSerializer):
     item_image = serializers.SerializerMethodField()
+    item_price = serializers.SerializerMethodField()
+    order_total = serializers.SerializerMethodField()
     shop_name = serializers.CharField(source='shop.name', read_only=True)
     shop_phone = serializers.CharField(source='shop.phone', read_only=True)
     shop_address = serializers.CharField(source='shop.address', read_only=True)
@@ -205,3 +207,12 @@ class OrderSerializer(serializers.ModelSerializer):
         if obj.item:
             return normalize_image_url(self, obj.item.image)
         return None
+
+    def get_item_price(self, obj):
+        if obj.item:
+            return obj.item.price or 0.0
+        return 0.0
+
+    def get_order_total(self, obj):
+        price = self.get_item_price(obj)
+        return price * obj.quantity
