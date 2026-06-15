@@ -86,9 +86,11 @@ class Shop(models.Model):
     def get_item_limit(self):
         if self.item_limit is not None:
             return self.item_limit
-        if self.plan in ['pro', 'pro_plus']:
+        if self.plan == 'pro_plus':
             return 500
-        return 10
+        if self.plan == 'pro':
+            return 200
+        return 50
 
     def activate_plan(self, plan_type):
         now = timezone.now()

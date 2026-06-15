@@ -564,16 +564,22 @@ def merchant_dashboard(request, user_id):
         banners = ShopBanner.objects.filter(shop=shop)
 
         # PLAN LIMITS
-        settings_obj = AppSettings.objects.first()
-        free_limit_base = settings_obj.free_tier_limit if settings_obj else 20
-        pro_limit_base = settings_obj.pro_tier_limit if settings_obj else 120
-
+        bought_slots = profile.user.credits.bought_limit_slots if hasattr(profile.user, 'credits') else 0
         if not shop.is_pro_active():
             cover_limit = 1
-            item_limit = free_limit_base + profile.user.credits.bought_limit_slots if hasattr(profile.user, 'credits') else free_limit_base
+            item_limit = 50 + bought_slots
+            pro_limit_base = 200
+            free_limit_base = 50
+        elif shop.plan == 'pro':
+            cover_limit = 3
+            item_limit = 200
+            pro_limit_base = 200
+            free_limit_base = 50
         else:
             cover_limit = 5
-            item_limit = pro_limit_base
+            item_limit = 500
+            pro_limit_base = 500
+            free_limit_base = 50
 
         return Response({
             "shop": ShopSerializer(shop, context={'request': request}).data,
@@ -1057,30 +1063,32 @@ def create_item(request):
     shop.check_and_update_plan()
     count = Item.objects.filter(shop=shop).count()
 
-    settings_obj = AppSettings.objects.first()
-    free_limit_base = settings_obj.free_tier_limit if settings_obj else 20
-    pro_limit_base = settings_obj.pro_tier_limit if settings_obj else 120
-
     credits_obj, _ = MerchantCredits.objects.get_or_create(merchant=user)
-    limit = free_limit_base + credits_obj.bought_limit_slots
-    is_pro = shop.is_pro_active()
-    if is_pro:
-        if count >= pro_limit_base:
-            return Response(
-                {"error": "pro_limit_reached", "message": f"Pro plan is limited to {pro_limit_base} items."},
-                status=403
-            )
-    else:
+    bought_slots = credits_obj.bought_limit_slots
+    
+    if not shop.is_pro_active():
+        limit = 50 + bought_slots
         if count >= limit:
-            return Response(
-                {"error": "limit_reached"},
-                status=403
-            )
+            return Response({"error": "limit_reached", "message": f"Free plan is limited to {limit} items."}, status=403)
+    elif shop.plan == 'pro':
+        limit = 200
+        if count >= limit:
+            return Response({"error": "pro_limit_reached", "message": f"Pro plan is limited to {limit} items."}, status=403)
+    else:
+        limit = 500
+        if count >= limit:
+            return Response({"error": "pro_plus_limit_reached", "message": f"Pro Plus plan is limited to {limit} items."}, status=403)
 
     image = request.FILES.get('image')
-    image2 = request.FILES.get('image2') if is_pro else None
-    image3 = request.FILES.get('image3') if is_pro else None
-    image4 = request.FILES.get('image4') if is_pro else None
+    image2 = None
+    image3 = None
+    image4 = None
+
+    if shop.is_pro_active():
+        image2 = request.FILES.get('image2')
+        if shop.plan == 'pro_plus':
+            image3 = request.FILES.get('image3')
+            image4 = request.FILES.get('image4')
 
     if not image:
         return Response({'error': 'Image required'}, status=400)
@@ -1365,13 +1373,15 @@ def upload_shop_media(request):
 
         count = ShopMedia.objects.filter(shop=shop).count()
 
-        # 🆓 FREE → only 1
-        if not shop.is_pro_active() and count >= 1:
-            return Response({'error': 'Free plan allows only 1 image'}, status=403)
-
-        # 💎 PRO → max 5
-        if shop.is_pro_active() and count >= 5:
-            return Response({'error': 'Max 5 images allowed'}, status=403)
+        if not shop.is_pro_active():
+            if count >= 1:
+                return Response({'error': 'Free plan allows only 1 image'}, status=403)
+        elif shop.plan == 'pro':
+            if count >= 3:
+                return Response({'error': 'Pro plan allows only 3 images'}, status=403)
+        else:
+            if count >= 5:
+                return Response({'error': 'Pro Plus plan allows only 5 images'}, status=403)
 
         media = ShopMedia.objects.create(
             shop=shop,
@@ -2285,12 +2295,19 @@ def credit_status(request):
         
     # Limit specs
     is_pro = shop.is_pro_active() if shop else False
-    settings_obj = AppSettings.objects.first()
-    free_limit_base = settings_obj.free_tier_limit if settings_obj else 20
-    pro_limit_base = settings_obj.pro_tier_limit if settings_obj else 120
-    if shop and is_pro:
-        pro_limit_base = shop.get_item_limit()
-    product_limit = free_limit_base + credits_obj.bought_limit_slots
+    if shop:
+        if not is_pro:
+            pro_limit_base = 200
+            product_limit = 50 + credits_obj.bought_limit_slots
+        elif shop.plan == 'pro':
+            pro_limit_base = 200
+            product_limit = 200
+        else:
+            pro_limit_base = 500
+            product_limit = 500
+    else:
+        pro_limit_base = 200
+        product_limit = 50 + credits_obj.bought_limit_slots
     
     return Response({
         "available_credits": credits_obj.available_credits,
@@ -2323,13 +2340,10 @@ def buy_limit_slot(request):
     credits_obj.bought_limit_slots += 1
     credits_obj.save()
     
-    settings_obj = AppSettings.objects.first()
-    free_limit_base = settings_obj.free_tier_limit if settings_obj else 20
-    
     return Response({
         "message": "Product slot unlocked successfully!",
         "available_credits": credits_obj.available_credits,
-        "product_limit": free_limit_base + credits_obj.bought_limit_slots
+        "product_limit": 50 + credits_obj.bought_limit_slots
     })
 
 
