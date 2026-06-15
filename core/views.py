@@ -2592,6 +2592,13 @@ def submit_order(request):
     customer_phone = request.data.get('customer_phone')
     delivery_address = request.data.get('delivery_address', '')
     notes = request.data.get('notes', '')
+    customer_latitude = request.data.get('customer_latitude')
+    customer_longitude = request.data.get('customer_longitude')
+
+    if customer_latitude == '':
+        customer_latitude = None
+    if customer_longitude == '':
+        customer_longitude = None
 
     if not shop_id or not item_id or not customer_name or not customer_phone:
         return Response({"error": "Missing required fields (shop_id, item_id, customer_name, customer_phone)"}, status=400)
@@ -2600,6 +2607,9 @@ def submit_order(request):
         shop = Shop.objects.get(id=shop_id)
     except Shop.DoesNotExist:
         return Response({"error": "Shop not found"}, status=404)
+
+    if shop.delivery_available and not str(delivery_address).strip():
+        return Response({"error": "Delivery address is required when delivery is enabled for this shop"}, status=400)
 
     try:
         item = Item.objects.get(id=item_id, shop=shop)
@@ -2618,6 +2628,8 @@ def submit_order(request):
         customer_phone=customer_phone,
         delivery_address=delivery_address,
         notes=notes,
+        customer_latitude=customer_latitude,
+        customer_longitude=customer_longitude,
         status='pending'
     )
 
@@ -2629,11 +2641,11 @@ def submit_order(request):
         type="order"
     )
 
-    serializer = OrderSerializer(order)
+    serializer = OrderSerializer(order, context={'request': request})
     return Response(serializer.data, status=201)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def get_merchant_orders(request):
     from .models import Shop, Order
@@ -2644,6 +2656,10 @@ def get_merchant_orders(request):
         shop = Shop.objects.get(owner=request.user)
     except Shop.DoesNotExist:
         return Response({"error": "Shop not found"}, status=404)
+
+    if request.method == 'DELETE':
+        Order.objects.filter(shop=shop).delete()
+        return Response({"message": "Order history cleared successfully"})
 
     orders = Order.objects.filter(shop=shop).order_by('-created_at')
 
@@ -2657,7 +2673,7 @@ def get_merchant_orders(request):
     current_year = now().year
     monthly_orders = orders.filter(created_at__month=current_month, created_at__year=current_year).count()
 
-    serializer = OrderSerializer(orders, many=True)
+    serializer = OrderSerializer(orders, many=True, context={'request': request})
 
     return Response({
         "orders": serializer.data,
@@ -2672,7 +2688,7 @@ def get_merchant_orders(request):
     })
 
 
-@api_view(['PATCH'])
+@api_view(['PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def update_order_status(request, order_id):
     from .models import Shop, Order, Notification
@@ -2687,6 +2703,10 @@ def update_order_status(request, order_id):
         order = Order.objects.get(id=order_id, shop=shop)
     except Order.DoesNotExist:
         return Response({"error": "Order not found"}, status=404)
+
+    if request.method == 'DELETE':
+        order.delete()
+        return Response({"message": "Order deleted successfully"})
 
     new_status = request.data.get('status')
     if new_status not in ['accepted', 'rejected', 'completed']:
@@ -2704,7 +2724,7 @@ def update_order_status(request, order_id):
         type="order"
     )
 
-    serializer = OrderSerializer(order)
+    serializer = OrderSerializer(order, context={'request': request})
     return Response(serializer.data)
 
 

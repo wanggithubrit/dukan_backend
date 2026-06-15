@@ -30,7 +30,8 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     "10.14.104.206",
-
+    "testserver",
+    "*"
 ]
 CSRF_TRUSTED_ORIGINS = [
     "http://10.14.104.206:3000",

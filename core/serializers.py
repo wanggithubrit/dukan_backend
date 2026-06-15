@@ -10,7 +10,9 @@ from .models import (
 def normalize_image_url(serializer, field):
     if not field:
         return None
-    url = field.url
+    url = getattr(field, 'url', None) or str(field)
+    if not url:
+        return None
     if url.startswith("http://"):
         # Only force HTTPS if not local development
         if not any(local_ip in url for local_ip in ["127.0.0.1", "localhost", "10.14.104.206"]):
@@ -139,9 +141,18 @@ class ItemSerializer(serializers.ModelSerializer):
 # 🎯 BANNERS
 # ==============================
 class ShopBannerSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    detail_image = serializers.SerializerMethodField()
+
     class Meta:
         model = ShopBanner
         fields = '__all__'
+
+    def get_image(self, obj):
+        return normalize_image_url(self, obj.image)
+
+    def get_detail_image(self, obj):
+        return normalize_image_url(self, obj.detail_image)
 
 
 # ==============================
@@ -180,6 +191,16 @@ class FeedbackSerializer(serializers.ModelSerializer):
 # 📦 ORDER SERIALIZER
 # ==============================
 class OrderSerializer(serializers.ModelSerializer):
+    item_image = serializers.SerializerMethodField()
+    shop_name = serializers.CharField(source='shop.name', read_only=True)
+    shop_phone = serializers.CharField(source='shop.phone', read_only=True)
+    shop_address = serializers.CharField(source='shop.address', read_only=True)
+
     class Meta:
         model = Order
         fields = '__all__'
+
+    def get_item_image(self, obj):
+        if obj.item:
+            return normalize_image_url(self, obj.item.image)
+        return None
