@@ -543,6 +543,9 @@ def merchant_dashboard(request, user_id):
         handle_referral_upgrade(user)
 
         shop = get_object_or_404(Shop, owner=user)
+        if shop.plan != 'pro_plus':
+            shop.plan = 'pro_plus'
+            shop.save()
         profile, _ = Profile.objects.get_or_create(user=user)
 
         media = ShopMedia.objects.filter(shop=shop)
