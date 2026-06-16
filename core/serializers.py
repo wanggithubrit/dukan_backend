@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 
 from .models import (
     Shop, ShopMedia, ShopBanner,
-    Notification, Item, FeaturedBanner, Feedback, Profile, Order
+    Notification, Item, FeaturedBanner, Feedback, Profile, Order, ShopRating
 )
 
 # Helper function to normalize URL to absolute URI if relative
@@ -53,7 +53,15 @@ class ShopSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         instance.check_and_update_plan()
         instance.sync_status()
-        return super().to_representation(instance)
+        data = super().to_representation(instance)
+        ratings = instance.ratings.all()
+        if ratings.exists():
+            avg = sum(r.rating for r in ratings) / len(ratings)
+            data['average_rating'] = round(avg, 1)
+        else:
+            data['average_rating'] = 0.0
+        data['total_ratings'] = ratings.count()
+        return data
 
 
 # ==============================
@@ -216,3 +224,15 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_order_total(self, obj):
         price = self.get_item_price(obj)
         return price * obj.quantity
+
+
+# ==============================
+# ⭐ SHOP RATING SERIALIZER
+# ==============================
+class ShopRatingSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = ShopRating
+        fields = ['id', 'user', 'username', 'shop', 'rating', 'review', 'created_at', 'updated_at']
+        read_only_fields = ['user']

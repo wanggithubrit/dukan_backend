@@ -492,7 +492,23 @@ class OrderAdmin(admin.ModelAdmin):
         total = qs.count()
         pending = qs.filter(status='pending').count()
         accepted = qs.filter(status='accepted').count()
+        rejected = qs.filter(status='rejected').count()
         completed = qs.filter(status='completed').count()
+        
+        extra_context['total_orders'] = total
+        extra_context['pending_orders'] = pending
+        extra_context['accepted_orders'] = accepted
+        extra_context['rejected_orders'] = rejected
+        extra_context['completed_orders'] = completed
+        
+        from django.db.models import Count
+        active_merchants = qs.values(
+            'shop__name', 'shop__owner__username'
+        ).annotate(
+            order_count=Count('id')
+        ).order_by('-order_count')[:5]
+        
+        extra_context['active_merchants'] = active_merchants
         
         from core.models import Shop
         pro_count = Shop.objects.filter(plan='pro').count()

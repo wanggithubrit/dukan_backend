@@ -55,7 +55,7 @@ from .views import (
 
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import merchant_dashboard, check_app_update, notify_item_customers, create_support_order, verify_support_payment, submit_order, get_merchant_orders, update_order_status, update_delivery_settings, get_customer_orders
+from .views import merchant_dashboard, check_app_update, notify_item_customers, create_support_order, verify_support_payment, submit_order, get_merchant_orders, update_order_status, update_delivery_settings, get_customer_orders, submit_rating, get_shop_ratings
 from rest_framework_simplejwt.views import TokenRefreshView
 print("CORE URLS LOADED ✅")
 
@@ -146,6 +146,8 @@ path(
     path('merchant/orders/<int:order_id>/', update_order_status),
     path('merchant/delivery/settings/', update_delivery_settings),
     path('debug/error/', debug_error),
+    path('shop/rate/', submit_rating),
+    path('shop/<int:shop_id>/ratings/', get_shop_ratings),
     ]
 
 

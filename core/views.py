@@ -366,6 +366,10 @@ def update_shop(request):
         shop.auto_reminder_enabled = str(auto_rem).lower() == 'true'
         shop.auto_notify = str(auto_rem).lower() == 'true'
 
+    payment_policy = request.data.get('payment_policy')
+    if payment_policy is not None:
+        shop.payment_policy = str(payment_policy)
+
     # IMAGE / COVER UPLOAD
     if request.FILES.get('image'):
         shop.image = request.FILES.get('image')
@@ -2675,9 +2679,15 @@ def submit_order(request):
     except Item.DoesNotExist:
         return Response({"error": "Item not found in this shop"}, status=404)
 
-    if shop.plan not in ['pro', 'pro_plus']:
-        return Response({"error": "Ordering is only available for Pro and Pro Plus subscription stores"}, status=403)
+    if is_demo_shop(shop) and shop.plan != 'pro_plus':
+        shop.plan = 'pro_plus'
+        shop.save()
 
+    shop.check_and_update_plan()
+    if shop.plan != 'pro_plus':
+        return Response({"error": "Ordering is a Pro Plus feature and is not available for this shop"}, status=403)
+
+    payment_method = request.data.get('payment_method', 'COD')
     order = Order.objects.create(
         customer=request.user if request.user and request.user.is_authenticated else None,
         shop=shop,
@@ -2690,8 +2700,20 @@ def submit_order(request):
         notes=notes,
         customer_latitude=customer_latitude,
         customer_longitude=customer_longitude,
+        payment_method=payment_method,
         status='pending'
     )
+
+    if request.user and request.user.is_authenticated:
+        from .models import Profile
+        profile, _ = Profile.objects.get_or_create(user=request.user)
+        if customer_name and customer_name.strip():
+            profile.name = customer_name.strip()
+        if customer_phone and customer_phone.strip():
+            profile.phone = customer_phone.strip()
+        if delivery_address and delivery_address.strip():
+            profile.address = delivery_address.strip()
+        profile.save()
 
     Notification.objects.create(
         user=shop.owner,
@@ -2719,6 +2741,10 @@ def get_merchant_orders(request):
             shop.save()
     except Shop.DoesNotExist:
         return Response({"error": "Shop not found"}, status=404)
+
+    shop.check_and_update_plan()
+    if shop.plan != 'pro_plus':
+        return Response({"error": "Order management is exclusive to Pro Plus subscription"}, status=403)
 
     if request.method == 'DELETE':
         Order.objects.filter(shop=shop).delete()
@@ -2759,8 +2785,15 @@ def update_order_status(request, order_id):
 
     try:
         shop = Shop.objects.get(owner=request.user)
+        if is_demo_shop(shop) and shop.plan != 'pro_plus':
+            shop.plan = 'pro_plus'
+            shop.save()
     except Shop.DoesNotExist:
         return Response({"error": "Shop not found"}, status=404)
+
+    shop.check_and_update_plan()
+    if shop.plan != 'pro_plus':
+        return Response({"error": "Order management is exclusive to Pro Plus subscription"}, status=403)
 
     try:
         order = Order.objects.get(id=order_id, shop=shop)
@@ -2799,22 +2832,28 @@ def update_delivery_settings(request):
 
     try:
         shop = Shop.objects.get(owner=request.user)
+        if is_demo_shop(shop) and shop.plan != 'pro_plus':
+            shop.plan = 'pro_plus'
+            shop.save()
     except Shop.DoesNotExist:
         return Response({"error": "Shop not found"}, status=404)
 
-    if shop.plan not in ['pro', 'pro_plus']:
-        return Response({"error": "Delivery options are exclusive to Pro and Pro Plus subscription"}, status=403)
+    shop.check_and_update_plan()
+    if shop.plan != 'pro_plus':
+        return Response({"error": "Delivery options are exclusive to Pro Plus subscription"}, status=403)
 
     delivery_available = request.data.get('delivery_available')
     delivery_charge = request.data.get('delivery_charge')
     delivery_area = request.data.get('delivery_area')
     estimated_delivery_time = request.data.get('estimated_delivery_time')
     delivery_range = request.data.get('delivery_range')
+    cod_allowed = request.data.get('cod_allowed')
+    online_payment_allowed = request.data.get('online_payment_allowed')
 
     if delivery_available is not None:
         shop.delivery_available = bool(delivery_available)
     if delivery_charge is not None:
-        shop.delivery_charge = float(delivery_charge)
+        shop.delivery_charge = str(delivery_charge)
     if delivery_area is not None:
         shop.delivery_area = str(delivery_area)
     if estimated_delivery_time is not None:
@@ -2824,6 +2863,13 @@ def update_delivery_settings(request):
             shop.delivery_range = int(delivery_range) if delivery_range != '' else None
         except ValueError:
             pass
+    if cod_allowed is not None:
+        shop.cod_allowed = bool(cod_allowed)
+    if online_payment_allowed is not None:
+        shop.online_payment_allowed = bool(online_payment_allowed)
+    payment_policy = request.data.get('payment_policy')
+    if payment_policy is not None:
+        shop.payment_policy = str(payment_policy)
 
     shop.save()
     serializer = ShopSerializer(shop, context={'request': request})
@@ -2859,4 +2905,60 @@ def get_customer_orders(request):
         
     orders = Order.objects.filter(query).distinct().order_by('-created_at')
     serializer = OrderSerializer(orders, many=True, context={'request': request})
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def submit_rating(request):
+    from .models import Shop, ShopRating
+
+    shop_id = request.data.get('shop_id')
+    rating_val = request.data.get('rating')
+    review_val = request.data.get('review', '')
+
+    if not shop_id or rating_val is None:
+        return Response({"error": "Missing shop_id or rating"}, status=400)
+
+    try:
+        rating_val = int(rating_val)
+        if rating_val < 1 or rating_val > 5:
+            raise ValueError
+    except ValueError:
+        return Response({"error": "Rating must be an integer between 1 and 5"}, status=400)
+
+    try:
+        shop = Shop.objects.get(id=shop_id)
+    except Shop.DoesNotExist:
+        return Response({"error": "Shop not found"}, status=404)
+
+    shop.check_and_update_plan()
+
+    rating_obj, created = ShopRating.objects.update_or_create(
+        user=request.user,
+        shop=shop,
+        defaults={'rating': rating_val, 'review': review_val}
+    )
+
+    # Calculate new average rating & count
+    ratings = shop.ratings.all()
+    avg = sum(r.rating for r in ratings) / len(ratings) if ratings.exists() else 0.0
+
+    return Response({
+        "success": True,
+        "rating": rating_obj.rating,
+        "review": rating_obj.review,
+        "average_rating": round(avg, 1),
+        "total_ratings": ratings.count()
+    }, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_shop_ratings(request, shop_id):
+    from .models import ShopRating
+    from .serializers import ShopRatingSerializer
+
+    ratings = ShopRating.objects.filter(shop_id=shop_id).order_by('-created_at')
+    serializer = ShopRatingSerializer(ratings, many=True)
     return Response(serializer.data)

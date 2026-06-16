@@ -69,10 +69,13 @@ class Shop(models.Model):
 
     # Delivery Settings (Pro Plus only)
     delivery_available = models.BooleanField(default=False)
-    delivery_charge = models.FloatField(default=0.0)
+    delivery_charge = models.CharField(max_length=255, default='0.0')
     delivery_area = models.TextField(blank=True, null=True)
     estimated_delivery_time = models.CharField(max_length=100, blank=True, null=True)
     delivery_range = models.IntegerField(default=10, null=True, blank=True)
+    cod_allowed = models.BooleanField(default=True)
+    online_payment_allowed = models.BooleanField(default=True)
+    payment_policy = models.CharField(max_length=50, default='both')
 
     # Custom Admin limit overrides
     item_limit = models.IntegerField(null=True, blank=True)
@@ -666,6 +669,7 @@ class Order(models.Model):
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='pending')
     customer_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     customer_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    payment_method = models.CharField(max_length=50, default='COD')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -674,3 +678,22 @@ class Order(models.Model):
 
     def __str__(self):
         return f"Order #{self.id} - {self.customer_name} ({self.status})"
+
+
+# ==============================
+# ⭐ SHOP RATING
+# ==============================
+class ShopRating(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shop_ratings')
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='ratings')
+    rating = models.IntegerField(default=5)  # 1 to 5 stars
+    review = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'shop')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.shop.name} ({self.rating} stars)"
