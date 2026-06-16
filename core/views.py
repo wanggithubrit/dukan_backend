@@ -868,7 +868,8 @@ def get_user(request, id):
         "role": profile.role or "customer",
         "name": profile.name or "",
         "phone": profile.phone or "",
-        "address": profile.address or ""
+        "address": profile.address or "",
+        "has_merchant_account": Shop.objects.filter(owner=user).exists()
     })
 
 
